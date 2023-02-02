@@ -35,14 +35,21 @@ namespace BaseObject
         public static bool IsTransparency(int id)
         {
             if (!Blocks.ContainsKey(1))
-                Block.Blocks.Add(1, new Block("Default", false));
+                Block.Blocks.Add(3, new Block("Crass", false));
+
+            if (!Blocks.ContainsKey(2))
+                Block.Blocks.Add(2, new Block("Stone", false));
+
+            if (!Blocks.ContainsKey(1))
+                Block.Blocks.Add(1, new Block("Dirt", false));
+
             if (!Blocks.ContainsKey(0))
                 Block.Blocks.Add(0, new Block("Void", true));
 
             if (Blocks.ContainsKey(id))
                 return Blocks[id].Transparency;
             else
-                return false;
+                return true;
         }
     }
 
@@ -63,6 +70,7 @@ namespace BaseObject
         public Vector3 ChankPoint;
         public GameObject MyObject;
         public Mesh MyMesh = new Mesh();
+        public List<Vector2> MyUV = new List<Vector2>();
 
         //static Vector3Int[,] Verticles = new Vector3Int[2,2];
         private List<Vector3> Verticles = new List<Vector3>();
@@ -132,6 +140,7 @@ namespace BaseObject
 
             MyMesh.vertices = Verticles.ToArray();
             MyMesh.triangles = Triangles.ToArray();
+            MyMesh.uv = MyUV.ToArray();
 
             MyMesh.RecalculateBounds();
             MyMesh.RecalculateNormals();
@@ -202,6 +211,7 @@ namespace BaseObject
 
             int OldCount = Verticles.Count;
             Vector3 BlockPoint = new Vector3(x, y, z);
+            int BlockID = BloksID[x, y, z];
 
             if (Block.IsTransparency(GetBlockID( new Vector3Int(x, y + 1, z))))
             {
@@ -210,6 +220,7 @@ namespace BaseObject
                 Verticles.Add(BlockPoint + new Vector3(0, 1, 1)); //2
                 Verticles.Add(BlockPoint + new Vector3(1, 1, 1)); //3
 
+                AddUVData(BlockID);
                 AddTriengles(OldCount);
                 OldCount += 4;
             }
@@ -221,6 +232,7 @@ namespace BaseObject
                 Verticles.Add(BlockPoint + new Vector3(1, 0, 0)); //1
                 Verticles.Add(BlockPoint + new Vector3(1, 0, 1)); //3
 
+                AddUVData(BlockID);
                 AddTriengles(OldCount);
                 OldCount += 4;
             }
@@ -232,6 +244,7 @@ namespace BaseObject
                 Verticles.Add(BlockPoint + new Vector3(1, 0, 1)); //1
                 Verticles.Add(BlockPoint + new Vector3(1, 1, 1)); //3
 
+                AddUVData(BlockID);
                 AddTriengles(OldCount);
                 OldCount += 4;
             }
@@ -243,6 +256,7 @@ namespace BaseObject
                 Verticles.Add(BlockPoint + new Vector3(0, 1, 0)); //2
                 Verticles.Add(BlockPoint + new Vector3(1, 1, 0)); //3
 
+                AddUVData(BlockID);
                 AddTriengles(OldCount);
                 OldCount += 4;
             }
@@ -254,6 +268,7 @@ namespace BaseObject
                 Verticles.Add(BlockPoint + new Vector3(0, 0, 1)); //1
                 Verticles.Add(BlockPoint + new Vector3(0, 1, 1)); //3
 
+                AddUVData(BlockID);
                 AddTriengles(OldCount);
                 OldCount += 4;
             }
@@ -265,10 +280,19 @@ namespace BaseObject
                 Verticles.Add(BlockPoint + new Vector3(1, 1, 0)); //2
                 Verticles.Add(BlockPoint + new Vector3(1, 1, 1)); //3
 
+                AddUVData(BlockID);
                 AddTriengles(OldCount);
             }
 
 
+        }
+
+        private void AddUVData(int blockID)
+        {
+            MyUV.Add(new Vector2(blockID, 0));
+            MyUV.Add(new Vector2(blockID, 0));
+            MyUV.Add(new Vector2(blockID, 0));
+            MyUV.Add(new Vector2(blockID, 0));
         }
 
         private void AddTriengles(int oldCount)

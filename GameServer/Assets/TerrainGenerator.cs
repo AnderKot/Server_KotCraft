@@ -14,11 +14,26 @@ namespace Generator
             {
                 for (int z = 0; z < 20; z++)
                 {
-                    float height = Mathf.PerlinNoise((x + position.x) * 0.05f, (z + position.z) * 0.05f) * 10;
+                    float height = Mathf.PerlinNoise((x + position.x) * 0.07f, (z + position.z) * 0.07f) * 15;
 
-                    for (int y = 0; ((y+ position.y) < height) & (y < 20); y++)
+                    for (int y = 0; ((y+ position.y) <= height) & (y < 20); y++)
                     {
-                       Terrain[x, y, z] = 1;
+                       if ((y + position.y) + 1 >= height)
+                        {
+                            Terrain[x, y, z] = 3;
+                            continue;
+                        } 
+                        
+                        
+                        if ((y + position.y) + 3 > height)
+                        {
+                            Terrain[x, y, z] = 1;
+                            continue;
+                        }
+
+                        Terrain[x, y, z] = 2;
+                        
+                        //Terrain[x, y, z] = Random.Range(1,2);
                     }
                 }
             }
