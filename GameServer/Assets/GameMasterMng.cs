@@ -174,6 +174,8 @@ public class GameMasterMng : MonoBehaviour
             {
                 SQLComand.CommandText = "INSERT INTO Shanks (WorldID , X , Y , Z , ID) VALUES (1," + chank.Key.x.ToString() + "," + chank.Key.y.ToString() + "," + chank.Key.z.ToString() + "," + id.ToString() + ")";
                 SQLComand.ExecuteNonQuery();
+                SQLComand.CommandText = "DELETE FROM Blocks WHERE ShankID=" + id.ToString();
+                SQLComand.ExecuteNonQuery();
 
                 foreach (KeyValuePair<Vector3Int, int> block in chank.Value.BlocksID)
                 {
@@ -229,11 +231,12 @@ public class GameMasterMng : MonoBehaviour
                 {
                     while (Reader2.Read())
                     {
-                        LoadBloksID.Add(new Vector3Int(int.Parse(Reader2["X"].ToString()), int.Parse(Reader2["Y"].ToString()), int.Parse(Reader2["Z"].ToString())), int.Parse(Reader2["ID"].ToString()));
+
+                        LoadBloksID.Add(new Vector3Int(Reader2.GetInt32("X"), Reader2.GetInt32("Y"), Reader2.GetInt32("Z")), Reader2.GetInt32("ID"));
                     }
                     Reader2.Close();
                 }
-                Chank.AddChank(new Vector3(float.Parse(Reader1["X"].ToString()), float.Parse(Reader1["Y"].ToString()), float.Parse(Reader1["Z"].ToString())), LoadBloksID);
+                Chank.AddChank(new Vector3(Reader1.GetFloat("X"), Reader1.GetFloat("Y"), Reader1.GetFloat("Z")), LoadBloksID);
             }
 
             Reader1.Close();

@@ -37,7 +37,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _DirtTex:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: 343e2ea6c605852469b6de74d1fcfc9f, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _EmissionMap:
@@ -49,11 +49,11 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _GrassSideTex:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: 2e617956ca3660c40ab3a15e96075af3, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _GrassTopTex:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: 2e7805984f87d2d40b7b3183c5263182, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _MainTex:
@@ -73,7 +73,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _StoneTex:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: d6a2cb9478970df41b69534a42444746, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _Tex:

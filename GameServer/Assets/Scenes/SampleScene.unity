@@ -154,6 +154,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   IsRender: 0
   IsGenerate: 0
+  IsRenderOne: 0
+  IsGenerateOne: 0
+  IsSave: 0
+  IsLoad: 0
+  SQLOk: 0
+  IsSetBlock: 0
+  IsDeleteBlock: 0
+  X: 0
+  Z: 0
+  Sub_X: 0
+  Sub_Y: 0
+  Sub_Z: 0
 --- !u!4 &598654468
 Transform:
   m_ObjectHideFlags: 0
