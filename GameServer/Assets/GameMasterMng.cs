@@ -17,7 +17,8 @@ public class GameMasterMng : MonoBehaviour
     public bool IsSave;
     public bool IsLoad;
     public bool SQLOk;
-    public bool IsSetBlock;
+    public bool IsSetBlock; 
+    public bool IsDeleteBlock;
 
     public int X;
     public int Z;
@@ -90,6 +91,12 @@ public class GameMasterMng : MonoBehaviour
         {
             IsSetBlock = false;
             Chank.Chanks[new Vector3(X * 20, 0, Z * 20)].SetBlock(new Vector3Int(Sub_X, Sub_Y , Sub_Z),1);
+        }
+
+        if (IsDeleteBlock)
+        {
+            IsDeleteBlock = false;
+            Chank.Chanks[new Vector3(X * 20, 0, Z * 20)].DeleteBlock(new Vector3Int(Sub_X, Sub_Y, Sub_Z), 1);
         }
     }
 

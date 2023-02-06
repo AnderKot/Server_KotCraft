@@ -13,6 +13,7 @@ using System.Drawing;
 using UnityEngine.Networking.Types;
 using UnityEngine.XR;
 using System.Reflection;
+using Unity.VisualScripting;
 
 namespace BaseObjects
 {
@@ -304,12 +305,12 @@ namespace BaseObjects
 
                 if (!Block.IsTransparency(id))
                 {
-                    CutBlockMash(point + Vector3Int.up, 2);
-                    CutBlockMash(point + Vector3Int.down, 1);
-                    CutBlockMash(point + Vector3Int.forward, 4);
-                    CutBlockMash(point + Vector3Int.back, 3);
-                    CutBlockMash(point + Vector3Int.left, 6);
-                    CutBlockMash(point + Vector3Int.right, 5);
+                    CutSideBlockMash(point + Vector3Int.up, 2);
+                    CutSideBlockMash(point + Vector3Int.down, 1);
+                    CutSideBlockMash(point + Vector3Int.forward, 4);
+                    CutSideBlockMash(point + Vector3Int.back, 3);
+                    CutSideBlockMash(point + Vector3Int.left, 6);
+                    CutSideBlockMash(point + Vector3Int.right, 5);
                 }
 
                 UpdateObjectMash();
@@ -317,30 +318,160 @@ namespace BaseObjects
 
         }
 
-        private void CutBlockMash(Vector3Int point, int sideID)
+        public void DeleteBlock(Vector3Int point, int id)
+        {
+            if (BlocksID.ContainsKey(point))
+            {
+                //AddBlockMash(point, id);
+                List<int> NearBlocksSides = CutAllBlockMash(point);
+                BlocksID.Remove(point);
+
+                int OldVerticlesCount = Verticles.Count;
+                int OldTrianglesCount = Triangles.Count;
+                int ID;
+                foreach (int sides in NearBlocksSides)
+                {
+                    switch (sides)
+                    {
+                        case 1:
+                            ID = GetLocalBlockID(point + Vector3Int.up);
+                            if (ID != 0)
+                            {
+                                AddDownSideMesh(point + Vector3Int.up, ID, ref OldVerticlesCount, ref OldTrianglesCount);
+                            }
+                            break;
+                        case 2:
+                            ID = GetLocalBlockID(point + Vector3Int.down);
+                            if (ID != 0)
+                            {
+                                AddUpSideMesh(point + Vector3Int.down, ID, ref OldVerticlesCount, ref OldTrianglesCount);
+                            }
+                            break;
+                        case 3:
+                            ID = GetLocalBlockID(point + Vector3Int.forward);
+                            if (ID != 0)
+                            {
+                                AddBackSideMesh(point + Vector3Int.forward, ID, ref OldVerticlesCount, ref OldTrianglesCount);
+                            }
+                            break;
+                        case 4:
+                            ID = GetLocalBlockID(point + Vector3Int.back);
+                            if (ID != 0)
+                            {
+                                AddForwardSideMesh(point + Vector3Int.back, ID, ref OldVerticlesCount, ref OldTrianglesCount);
+                            }
+                            break;
+                        case 5:
+                            ID = GetLocalBlockID(point + Vector3Int.left);
+                            if (ID != 0)
+                            {
+                                AddRightSideMesh(point + Vector3Int.left, ID, ref OldVerticlesCount, ref OldTrianglesCount);
+                            }
+                            break;
+                        case 6:
+                            ID = GetLocalBlockID(point + Vector3Int.right);
+                            if (ID != 0)
+                            {
+                                AddLeftSideMesh(point + Vector3Int.right, ID, ref OldVerticlesCount, ref OldTrianglesCount);
+                            }
+                            break;
+                    }
+                }
+                UpdateObjectMash();
+            }
+        }
+
+        private List<int> CutAllBlockMash(Vector3Int point)
+        {
+            int[] Sides = { 1, 2, 3, 4, 5, 6 }; 
+            List<int> NearBlocksSides = new List<int>(Sides);
+            if (BlocksID.ContainsKey(point))
+            {
+                bool Transparency = Block.IsTransparency(GetLocalBlockID(point));
+                List<MyMeshInfo> Pointers = StartMeshPointers.FindAll(pointer => (pointer.BlockPoint == point));
+                foreach (MyMeshInfo Pointer in Pointers)
+                {
+                    if (!Transparency)
+                        NearBlocksSides.Remove(Pointer.SideID);
+                    CutSideBlockMash(Pointer.BlockPoint, Pointer.SideID);
+                }
+                
+                        /*
+                        List<MyMeshInfo> Pointers = StartMeshPointers.FindAll(pointer => (pointer.BlockPoint == point));
+                        int DeletedIndex = StartMeshPointers.IndexOf(Pointers[0]);
+                        //int CountDeletedID = 0;
+                        int DST = 0;
+                        int DSV = 0;
+                        bool Transparency = Block.IsTransparency(GetLocalBlockID(point));
+                        foreach (MyMeshInfo Pointer in Pointers)
+                        {
+                            if (!Transparency)
+                                NearBlocksSides.Remove(Pointer.SideID);
+
+                            Verticles.RemoveRange(Pointer.StartVerticlIndex - DSV, 4);
+                            MyUV.RemoveRange(Pointer.StartVerticlIndex - DSV, 4);
+                            MyUVasID.RemoveRange(Pointer.StartVerticlIndex - DSV, 4);
+                            Triangles.RemoveRange(Pointer.StartTrianglesIndex - DST, 6);
+                            List<int> TempTriangles = Triangles.GetRange(Pointer.StartTrianglesIndex - DST, Triangles.Count - (Pointer.StartTrianglesIndex - DST));
+                            Triangles.RemoveRange(Pointer.StartTrianglesIndex - DST, Triangles.Count - (Pointer.StartTrianglesIndex - DST));
+                            foreach (int triangles in TempTriangles)
+                            {
+                                Triangles.Add(triangles - 4);
+                            }
+
+                            DeletedIndex = StartMeshPointers.FindIndex(pointer => (pointer.BlockPoint == Pointer.BlockPoint) & (pointer.SideID == Pointer.SideID));
+                            StartMeshPointers.RemoveAt(DeletedIndex);
+                            List<MyMeshInfo> TempPointers = StartMeshPointers.GetRange(DeletedIndex, StartMeshPointers.Count - DeletedIndex);
+                            StartMeshPointers.RemoveRange(DeletedIndex, StartMeshPointers.Count - DeletedIndex);
+                            foreach (MyMeshInfo pointers in TempPointers)
+                            {
+                                StartMeshPointers.Add(new MyMeshInfo(pointers.BlockPoint, pointers.StartVerticlIndex - DSV, pointers.StartTrianglesIndex - DST, pointers.SideID));
+                            }
+
+                            //CountDeletedID++;
+                            DST += 6;
+                            DSV += 4;
+                        }
+                        */
+                        /*
+                        StartMeshPointers.RemoveRange(DeletedIndex, CountDeletedID);
+                        List<MyMeshInfo> TempPointers = StartMeshPointers.GetRange(DeletedIndex, StartMeshPointers.Count - DeletedIndex);
+                        StartMeshPointers.RemoveRange(DeletedIndex, StartMeshPointers.Count - DeletedIndex);
+                        foreach (MyMeshInfo pointers in TempPointers)
+                        {
+                            StartMeshPointers.Add(new MyMeshInfo(pointers.BlockPoint, pointers.StartVerticlIndex - (4 * CountDeletedID), pointers.StartTrianglesIndex - (6 * CountDeletedID), pointers.SideID));
+                        }
+                        */
+            }
+            return NearBlocksSides;
+        }
+
+        private void CutSideBlockMash(Vector3Int point, int sideID)
         {
             if (BlocksID.ContainsKey(point))
             {
                 MyMeshInfo CurrInfo = StartMeshPointers.Find(pointer => (pointer.BlockPoint == point) & (pointer.SideID == sideID));
-                sideID = sideID;
-                Verticles.RemoveRange(CurrInfo.StartVerticlIndex, 4);
-                MyUV.RemoveRange(CurrInfo.StartVerticlIndex, 4);
-                MyUVasID.RemoveRange(CurrInfo.StartVerticlIndex, 4);
-                Triangles.RemoveRange(CurrInfo.StartTrianglesIndex, 6);
-                List<int> TempTriangles = Triangles.GetRange(CurrInfo.StartTrianglesIndex, Triangles.Count - CurrInfo.StartTrianglesIndex);
-                Triangles.RemoveRange(CurrInfo.StartTrianglesIndex, Triangles.Count - CurrInfo.StartTrianglesIndex);
-                foreach (int triangles in TempTriangles)
+                if(CurrInfo.SideID != 0)
                 {
-                    Triangles.Add(triangles - 4);
-                }
+                    Verticles.RemoveRange(CurrInfo.StartVerticlIndex, 4);
+                    MyUV.RemoveRange(CurrInfo.StartVerticlIndex, 4);
+                    MyUVasID.RemoveRange(CurrInfo.StartVerticlIndex, 4);
+                    Triangles.RemoveRange(CurrInfo.StartTrianglesIndex, 6);
+                    List<int> TempTriangles = Triangles.GetRange(CurrInfo.StartTrianglesIndex, Triangles.Count - CurrInfo.StartTrianglesIndex);
+                    Triangles.RemoveRange(CurrInfo.StartTrianglesIndex, Triangles.Count - CurrInfo.StartTrianglesIndex);
+                    foreach (int triangles in TempTriangles)
+                    {
+                        Triangles.Add(triangles - 4);
+                    }
                 
-                int DeletedIndex = StartMeshPointers.IndexOf(CurrInfo);
-                StartMeshPointers.RemoveAt(DeletedIndex);
-                List<MyMeshInfo> TempPointers = StartMeshPointers.GetRange(DeletedIndex, StartMeshPointers.Count - DeletedIndex);
-                StartMeshPointers.RemoveRange(DeletedIndex, StartMeshPointers.Count - DeletedIndex);
-                foreach (MyMeshInfo pointers in TempPointers)
-                {
-                    StartMeshPointers.Add(new MyMeshInfo(pointers.BlockPoint, pointers.StartVerticlIndex - 4, pointers.StartTrianglesIndex - 6, pointers.SideID));
+                    int DeletedIndex = StartMeshPointers.IndexOf(CurrInfo);
+                    StartMeshPointers.RemoveAt(DeletedIndex);
+                    List<MyMeshInfo> TempPointers = StartMeshPointers.GetRange(DeletedIndex, StartMeshPointers.Count - DeletedIndex);
+                    StartMeshPointers.RemoveRange(DeletedIndex, StartMeshPointers.Count - DeletedIndex);
+                    foreach (MyMeshInfo pointers in TempPointers)
+                    {
+                        StartMeshPointers.Add(new MyMeshInfo(pointers.BlockPoint, pointers.StartVerticlIndex - 4, pointers.StartTrianglesIndex - 6, pointers.SideID));
+                    }
                 }
             }
         }
@@ -353,6 +484,7 @@ namespace BaseObjects
             Triangles.Clear();
             MyUV.Clear();
             MyUVasID.Clear();
+            StartMeshPointers.Clear();
 
             foreach (KeyValuePair<Vector3Int, int> currBlock in this.BlocksID) 
             {
@@ -367,78 +499,42 @@ namespace BaseObjects
             int OldVerticlesCount = Verticles.Count;
             int OldTrianglesCount = Triangles.Count;
 
-            if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.up)))  //1
+            AddUpSideMesh(point, id, ref OldVerticlesCount, ref OldTrianglesCount);
+
+            AddDownSideMesh(point, id, ref OldVerticlesCount, ref OldTrianglesCount);
+
+            AddForwardSideMesh(point, id, ref OldVerticlesCount, ref OldTrianglesCount);
+
+            AddBackSideMesh(point, id, ref OldVerticlesCount, ref OldTrianglesCount);
+
+            AddLeftSideMesh(point, id, ref OldVerticlesCount, ref OldTrianglesCount);
+
+            AddRightSideMesh(point, id, ref OldVerticlesCount, ref OldTrianglesCount);
+        }
+
+        private void AddRightSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        {
+            if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.right))) //6
             {
-                Verticles.Add(point + new Vector3(0, 1, 0)); //0
-                Verticles.Add(point + new Vector3(1, 1, 0)); //1
-                Verticles.Add(point + new Vector3(0, 1, 1)); //2
-                Verticles.Add(point + new Vector3(1, 1, 1)); //3
-                MyUV.Add(new Vector2(0, 0));
-                MyUV.Add(new Vector2(1, 0));
-                MyUV.Add(new Vector2(0, 1));
-                MyUV.Add(new Vector2(1, 1));
-
-                AddDataInUV(id);
-                AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount , 1));
-                OldVerticlesCount += 4;
-                OldTrianglesCount += 6;
-            }
-
-            if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.down))) //2
-            {
-                Verticles.Add(point + new Vector3(0, 0, 0)); //0
-                Verticles.Add(point + new Vector3(0, 0, 1)); //2
-                Verticles.Add(point + new Vector3(1, 0, 0)); //1
-                Verticles.Add(point + new Vector3(1, 0, 1)); //3
-                MyUV.Add(new Vector2(0, 0));
-                MyUV.Add(new Vector2(1, 0));
-                MyUV.Add(new Vector2(0, 1));
-                MyUV.Add(new Vector2(1, 1));
-
-                AddDataInUV(id);
-                AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount , 2));
-                OldVerticlesCount += 4;
-                OldTrianglesCount += 6;
-            }
-
-            if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.forward))) //3
-            {
-                Verticles.Add(point + new Vector3(0, 0, 1)); //0
-                Verticles.Add(point + new Vector3(0, 1, 1)); //2
+                Verticles.Add(point + new Vector3(1, 0, 0)); //0
                 Verticles.Add(point + new Vector3(1, 0, 1)); //1
+                Verticles.Add(point + new Vector3(1, 1, 0)); //2
                 Verticles.Add(point + new Vector3(1, 1, 1)); //3
                 MyUV.Add(new Vector2(0, 0));
-                MyUV.Add(new Vector2(0, 1));
-                MyUV.Add(new Vector2(1, 0));
-                MyUV.Add(new Vector2(1, 1));
-
-                AddDataInUV(id);
-                AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 3));
-                OldVerticlesCount += 4;
-                OldTrianglesCount += 6;
-            }
-
-            if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.back))) //4
-            {
-                Verticles.Add(point + new Vector3(0, 0, 0)); //0
-                Verticles.Add(point + new Vector3(1, 0, 0)); //1
-                Verticles.Add(point + new Vector3(0, 1, 0)); //2
-                Verticles.Add(point + new Vector3(1, 1, 0)); //3
-                MyUV.Add(new Vector2(0, 0));
                 MyUV.Add(new Vector2(1, 0));
                 MyUV.Add(new Vector2(0, 1));
                 MyUV.Add(new Vector2(1, 1));
 
                 AddDataInUV(id);
                 AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount , 4));
+                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 6));
                 OldVerticlesCount += 4;
                 OldTrianglesCount += 6;
             }
+        }
 
+        private void AddLeftSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        {
             if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.left))) //5
             {
                 Verticles.Add(point + new Vector3(0, 0, 0)); //0
@@ -456,12 +552,78 @@ namespace BaseObjects
                 OldVerticlesCount += 4;
                 OldTrianglesCount += 6;
             }
+        }
 
-            if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.right))) //6
+        private void AddBackSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        {
+            if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.back))) //4
             {
-                Verticles.Add(point + new Vector3(1, 0, 0)); //0
+                Verticles.Add(point + new Vector3(0, 0, 0)); //0
+                Verticles.Add(point + new Vector3(1, 0, 0)); //1
+                Verticles.Add(point + new Vector3(0, 1, 0)); //2
+                Verticles.Add(point + new Vector3(1, 1, 0)); //3
+                MyUV.Add(new Vector2(0, 0));
+                MyUV.Add(new Vector2(1, 0));
+                MyUV.Add(new Vector2(0, 1));
+                MyUV.Add(new Vector2(1, 1));
+
+                AddDataInUV(id);
+                AddTriengles(OldVerticlesCount);
+                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 4));
+                OldVerticlesCount += 4;
+                OldTrianglesCount += 6;
+            }
+        }
+
+        private void AddForwardSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        {
+            if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.forward))) //3
+            {
+                Verticles.Add(point + new Vector3(0, 0, 1)); //0
+                Verticles.Add(point + new Vector3(0, 1, 1)); //2
                 Verticles.Add(point + new Vector3(1, 0, 1)); //1
-                Verticles.Add(point + new Vector3(1, 1, 0)); //2
+                Verticles.Add(point + new Vector3(1, 1, 1)); //3
+                MyUV.Add(new Vector2(0, 0));
+                MyUV.Add(new Vector2(0, 1));
+                MyUV.Add(new Vector2(1, 0));
+                MyUV.Add(new Vector2(1, 1));
+
+                AddDataInUV(id);
+                AddTriengles(OldVerticlesCount);
+                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 3));
+                OldVerticlesCount += 4;
+                OldTrianglesCount += 6;
+            }
+        }
+
+        private void AddDownSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        {
+            if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.down))) //2
+            {
+                Verticles.Add(point + new Vector3(0, 0, 0)); //0
+                Verticles.Add(point + new Vector3(0, 0, 1)); //2
+                Verticles.Add(point + new Vector3(1, 0, 0)); //1
+                Verticles.Add(point + new Vector3(1, 0, 1)); //3
+                MyUV.Add(new Vector2(0, 0));
+                MyUV.Add(new Vector2(1, 0));
+                MyUV.Add(new Vector2(0, 1));
+                MyUV.Add(new Vector2(1, 1));
+
+                AddDataInUV(id);
+                AddTriengles(OldVerticlesCount);
+                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 2));
+                OldVerticlesCount += 4;
+                OldTrianglesCount += 6;
+            }
+        }
+
+        private void AddUpSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        {
+            if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.up)))  //1
+            {
+                Verticles.Add(point + new Vector3(0, 1, 0)); //0
+                Verticles.Add(point + new Vector3(1, 1, 0)); //1
+                Verticles.Add(point + new Vector3(0, 1, 1)); //2
                 Verticles.Add(point + new Vector3(1, 1, 1)); //3
                 MyUV.Add(new Vector2(0, 0));
                 MyUV.Add(new Vector2(1, 0));
@@ -470,7 +632,9 @@ namespace BaseObjects
 
                 AddDataInUV(id);
                 AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 6));
+                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 1));
+                OldVerticlesCount += 4;
+                OldTrianglesCount += 6;
             }
         }
 
