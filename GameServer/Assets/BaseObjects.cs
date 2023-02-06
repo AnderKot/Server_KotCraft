@@ -11,6 +11,8 @@ using static UnityEditor.Progress;
 using ObjectsData;
 using System.Drawing;
 using UnityEngine.Networking.Types;
+using UnityEngine.XR;
+using System.Reflection;
 
 namespace BaseObjects
 {
@@ -100,7 +102,7 @@ namespace BaseObjects
         public Mesh MyMesh = new Mesh();
         public List<Vector2> MyUVasID = new List<Vector2>();
         public List<Vector2> MyUV = new List<Vector2>();
-        public List<MashInfo> StartMeshPointers = new List<MashInfo>();
+        public List<MyMeshInfo> StartMeshPointers = new List<MyMeshInfo>();
 
         //static Vector3Int[,] Verticles = new Vector3Int[2,2];
         private List<Vector3> Verticles = new List<Vector3>();
@@ -319,17 +321,26 @@ namespace BaseObjects
         {
             if (BlocksID.ContainsKey(point))
             {
-                MashInfo CurrInfo = StartMeshPointers.Find(pointer => (pointer.BlockPoint == point) & (pointer.SideID == sideID));
+                MyMeshInfo CurrInfo = StartMeshPointers.Find(pointer => (pointer.BlockPoint == point) & (pointer.SideID == sideID));
                 sideID = sideID;
                 Verticles.RemoveRange(CurrInfo.StartVerticlIndex, 4);
                 MyUV.RemoveRange(CurrInfo.StartVerticlIndex, 4);
                 MyUVasID.RemoveRange(CurrInfo.StartVerticlIndex, 4);
                 Triangles.RemoveRange(CurrInfo.StartTrianglesIndex, 6);
-                List<int> TempTriangles = Triangles.GetRange(CurrInfo.StartTrianglesIndex, Triangles.Count);
-                Triangles.RemoveRange(CurrInfo.StartTrianglesIndex, Triangles.Count);
+                List<int> TempTriangles = Triangles.GetRange(CurrInfo.StartTrianglesIndex, Triangles.Count - CurrInfo.StartTrianglesIndex);
+                Triangles.RemoveRange(CurrInfo.StartTrianglesIndex, Triangles.Count - CurrInfo.StartTrianglesIndex);
                 foreach (int triangles in TempTriangles)
                 {
                     Triangles.Add(triangles - 4);
+                }
+                
+                int DeletedIndex = StartMeshPointers.IndexOf(CurrInfo);
+                StartMeshPointers.RemoveAt(DeletedIndex);
+                List<MyMeshInfo> TempPointers = StartMeshPointers.GetRange(DeletedIndex, StartMeshPointers.Count - DeletedIndex);
+                StartMeshPointers.RemoveRange(DeletedIndex, StartMeshPointers.Count - DeletedIndex);
+                foreach (MyMeshInfo pointers in TempPointers)
+                {
+                    StartMeshPointers.Add(new MyMeshInfo(pointers.BlockPoint, pointers.StartVerticlIndex - 4, pointers.StartTrianglesIndex - 6, pointers.SideID));
                 }
             }
         }
@@ -369,7 +380,7 @@ namespace BaseObjects
 
                 AddDataInUV(id);
                 AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MashInfo(point, OldVerticlesCount, OldTrianglesCount , 1));
+                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount , 1));
                 OldVerticlesCount += 4;
                 OldTrianglesCount += 6;
             }
@@ -387,7 +398,7 @@ namespace BaseObjects
 
                 AddDataInUV(id);
                 AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MashInfo(point, OldVerticlesCount, OldTrianglesCount , 2));
+                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount , 2));
                 OldVerticlesCount += 4;
                 OldTrianglesCount += 6;
             }
@@ -405,7 +416,7 @@ namespace BaseObjects
 
                 AddDataInUV(id);
                 AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MashInfo(point, OldVerticlesCount, OldTrianglesCount, 3));
+                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 3));
                 OldVerticlesCount += 4;
                 OldTrianglesCount += 6;
             }
@@ -423,7 +434,7 @@ namespace BaseObjects
 
                 AddDataInUV(id);
                 AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MashInfo(point, OldVerticlesCount, OldTrianglesCount , 4));
+                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount , 4));
                 OldVerticlesCount += 4;
                 OldTrianglesCount += 6;
             }
@@ -441,7 +452,7 @@ namespace BaseObjects
 
                 AddDataInUV(id);
                 AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MashInfo(point, OldVerticlesCount, OldTrianglesCount, 5));
+                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 5));
                 OldVerticlesCount += 4;
                 OldTrianglesCount += 6;
             }
@@ -459,7 +470,7 @@ namespace BaseObjects
 
                 AddDataInUV(id);
                 AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MashInfo(point, OldVerticlesCount, OldTrianglesCount, 6));
+                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 6));
             }
         }
 
@@ -485,14 +496,14 @@ namespace BaseObjects
         }
     }
 
-    public struct MashInfo
+    public struct MyMeshInfo
     {
         public Vector3Int BlockPoint;
         public int StartVerticlIndex;
         public int StartTrianglesIndex;
         public int SideID;
 
-        public MashInfo(Vector3Int point, int startVerticlesCount, int startTrianglesCount, int sideID) : this()
+        public MyMeshInfo(Vector3Int point, int startVerticlesCount, int startTrianglesCount, int sideID) : this()
         {
             this.BlockPoint = point;
             this.StartVerticlIndex = startVerticlesCount;
