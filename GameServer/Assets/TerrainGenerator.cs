@@ -6,33 +6,33 @@ namespace Generator
 {
     public class TerrainGenerator
     {
-        public static int[,,] Run(Vector3 position)
+        public static Dictionary<Vector3Int, int> Run(Vector3 chankPosition)
         {
-            int[,,] Terrain = new int[20, 20, 20];
-
+            //int[,,] Terrain = new int[20, 20, 20];
+            Dictionary<Vector3Int, int> Terrain = new Dictionary<Vector3Int, int>();
             for (int x = 0; x < 20; x++)
             {
                 for (int z = 0; z < 20; z++)
                 {
-                    float height = Mathf.PerlinNoise((x + position.x) * 0.07f, (z + position.z) * 0.07f) * 15;
+                    float height = Mathf.PerlinNoise((x + chankPosition.x) * 0.02f, (z + chankPosition.z) * 0.02f) * 30 + 10;
 
-                    for (int y = 0; ((y+ position.y) <= height) & (y < 20); y++)
+                    for (int y = 0; ((y+ chankPosition.y) <= height) & (y < 100); y++)
                     {
-                       if ((y + position.y) + 1 >= height)
+                        if ((y + chankPosition.y) + 1 >= height)
                         {
-                            Terrain[x, y, z] = 3;
+                            Terrain.Add(new Vector3Int(x, y, z), 3);
                             continue;
                         } 
                         
                         
-                        if ((y + position.y) + 3 > height)
+                        if ((y + chankPosition.y) + 3 > height)
                         {
-                            Terrain[x, y, z] = 1;
+                            Terrain.Add(new Vector3Int(x, y, z), 1);
                             continue;
                         }
 
-                        Terrain[x, y, z] = 2;
-                        
+                        Terrain.Add(new Vector3Int(x, y, z), 2);
+
                         //Terrain[x, y, z] = Random.Range(1,2);
                     }
                 }

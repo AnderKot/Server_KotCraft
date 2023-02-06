@@ -5,9 +5,9 @@ Shader "Custom/ChankShader"
     Properties
     {
         _DirtTex("Dirt", 2D) = "white" {}
+        _StoneTex("Stone", 2D) = "black" {}
         _GrassTopTex("Grass top", 2D) = "darckgreen" {}
         _GrassSideTex("Grass side", 2D) = "green" {}
-        _StoneTex("Stone", 2D) = "black" {}
         _Scale("Scale", float) = 1
         [NoScaleOffset] _BumpMap("Normalmap", 2D) = "bump" {}
     }
@@ -30,6 +30,8 @@ Shader "Custom/ChankShader"
         struct Input
         {
             float2 uv_DirtTex;
+            //float2 uv_BlockID;
+            float2 uv2_StoneTex;
             float3 worldPos;
             float3 worldNormal;
             
@@ -48,8 +50,7 @@ Shader "Custom/ChankShader"
 
             
             float2 offset = float2(x * IsUp + z * IsFront + y * IsRight, z * IsUp + y * IsFront + x * IsRight);
-            if (IsRight)
-                offset = float2(offset.y,offset.x);
+
 
             fixed4 c;
             
@@ -57,16 +58,14 @@ Shader "Custom/ChankShader"
             {
                 if (IsUp > 0)
                 {
-                    float4 Green = (0, 0, 0, 0);
-                    float4 BaseColor = tex2D(_GrassTopTex, offset);
-                    c = BaseColor;// +Green;
+                    c = tex2D(_GrassTopTex, IN.uv2_StoneTex);// +Green;
                 }
-                else if (IsFront + IsRight > 0)
+                else if (IsFront + IsRight != 0)
                 {
-                    c = tex2D(_GrassSideTex, offset);
+                    c = tex2D(_GrassSideTex, IN.uv2_StoneTex);
                 }
                 else
-                    c = tex2D(_DirtTex, offset);
+                    c = tex2D(_DirtTex, IN.uv2_StoneTex);
 
                 o.Albedo = c.rgb;
                 o.Alpha = c.a;
@@ -75,7 +74,7 @@ Shader "Custom/ChankShader"
 
             if (IN.uv_DirtTex.x > 1) // Камень
             {
-                c = tex2D(_StoneTex, offset);
+                c = tex2D(_StoneTex, IN.uv2_StoneTex);
                 o.Albedo = c.rgb;
                 o.Alpha = c.a;
                 return;
@@ -83,7 +82,7 @@ Shader "Custom/ChankShader"
 
             if (IN.uv_DirtTex.x > 0) // Земля
             {
-                 c = tex2D(_DirtTex, offset);
+                 c = tex2D(_DirtTex, IN.uv2_StoneTex);
                  o.Albedo = c.rgb;
                  o.Alpha = c.a;
                  return;

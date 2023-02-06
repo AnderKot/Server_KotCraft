@@ -2,8 +2,7 @@
 #
 # Get latest from https://github.com/github/gitignore/blob/main/Unity.gitignore
 #
-/GameServer/[Ll]ibrary/*
-/GameServer/[Ll]ibrary/Artifacts/*
+*/Library/*
 /[Tt]emp/
 /[Oo]bj/
 /[Bb]uild/
@@ -49,9 +48,7 @@ ExportedObj/
 *.VC.db
 
 # Unity3D generated meta files
-*.pidb.meta
-*.pdb.meta
-*.mdb.meta
+*.meta
 
 # Unity3D generated file on crash reports
 sysinfo.txt

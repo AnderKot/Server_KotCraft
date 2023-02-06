@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using BaseObject;
+using BaseObjects;
 
 
 public class ChankMng : MonoBehaviour
