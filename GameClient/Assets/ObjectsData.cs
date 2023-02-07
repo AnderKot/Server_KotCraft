@@ -1,6 +1,7 @@
 ﻿using BaseObjects;
 using System;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 
 namespace ObjectsData
@@ -42,16 +43,16 @@ namespace ObjectsData
     }
 
     [Serializable]
-    public struct BlocksIDData
+    public class BlocksIDData
     {
         [SerializeField]
         public int Point_x;
-        [SerializeField]
         public int Point_y;
-        [SerializeField]
         public int Point_z;
         [SerializeField]
         public int ID;
+
+        BlocksIDData() { }
 
         public BlocksIDData(Vector3Int point, int id)
         {
@@ -63,18 +64,16 @@ namespace ObjectsData
     }
 
     [Serializable]
-    public struct ChankData
+    public class ChankData
     {
         [SerializeField]
-        //public int[,,] BlockIDArrey;
         public List<BlocksIDData> BlocksID;
         [SerializeField]
         public float Point_x;
-        [SerializeField]
         public float Point_y;
-        [SerializeField]
         public float Point_z;
 
+        public ChankData() { }
 
         public ChankData(Vector3 point, Dictionary<Vector3Int, int> blocksID)
         {
@@ -82,20 +81,20 @@ namespace ObjectsData
             Point_x = point.x;
             Point_y = point.y;
             Point_z = point.z;
-            //BlockIDArrey = new int[20,20,20];
             foreach (KeyValuePair<Vector3Int, int> blockID in blocksID)
             {
-                //BlockIDArrey[blockID.Key.x, blockID.Key.y, blockID.Key.z] = blockID.Value;
                 BlocksID.Add(new BlocksIDData(blockID.Key, blockID.Value));
             }
         }
     }
 
     [Serializable]
-    public struct ChankDataList
+    public class ChankDataList
     {
         [SerializeField]
         public List<ChankData> Chanks;
+
+        public ChankDataList() { }
 
         public ChankDataList(Dictionary<Vector3, Chank> chanks)
         {
@@ -104,11 +103,24 @@ namespace ObjectsData
             foreach (KeyValuePair<Vector3, Chank> chank in chanks)
             {
                 ChankData chankData = new ChankData(chank.Key, chank.Value.BlocksID);
-                //if(chankData.BlocksID.Count > 0)
-                //{ 
+                if(chankData.BlocksID.Count > 0)
+                { 
                     Chanks.Add(chankData);
-                //}
+                }
             }
+        }
+
+        public Dictionary<Vector3, Chank> SetCurrData()
+        {
+            Dictionary<Vector3, Chank> NewDictionary = new Dictionary<Vector3, Chank>();
+            Dictionary<Vector3Int, int> LoadBloksID = new Dictionary<Vector3Int, int>();
+
+            foreach (ChankData chank in this.Chanks)
+            {
+                Chank.AddChank(new Vector3(chank.Point_x, chank.Point_y, chank.Point_z), chank.BlocksID);
+            }
+
+            return NewDictionary;
         }
     }
 }

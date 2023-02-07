@@ -1,3 +1,4 @@
+using Palmmedia.ReportGenerator.Core;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -5,10 +6,14 @@ using UnityEngine;
 using Generator;
 
 using System.IO;
+using UnityEditor;
+using static UnityEditor.Progress;
 using ObjectsData;
-using Mono.Data.Sqlite;
-using System.Data;
-using System.Threading;
+using System.Drawing;
+using UnityEngine.Networking.Types;
+using UnityEngine.XR;
+using System.Reflection;
+using Unity.VisualScripting;
 
 namespace BaseObjects
 {
@@ -95,15 +100,15 @@ namespace BaseObjects
         //public int[,,] BloksID = new int[20, 20, 20];
         public Vector3 ChankPoint;
         public GameObject MyObject;
-        public bool IsModifyed;
-
-        //static Vector3Int[,] Verticles = new Vector3Int[2,2];
-        private List<Vector3> Verticles = new List<Vector3>();
-        private List<int> Triangles = new List<int>();
         public Mesh MyMesh = new Mesh();
         public List<Vector2> MyUVasID = new List<Vector2>();
         public List<Vector2> MyUV = new List<Vector2>();
         public List<MyMeshInfo> StartMeshPointers = new List<MyMeshInfo>();
+
+        //static Vector3Int[,] Verticles = new Vector3Int[2,2];
+        private List<Vector3> Verticles = new List<Vector3>();
+
+        private List<int> Triangles = new List<int>();
 
         // --—татические пол€--
         private static GameObject ChankGameObject = Resources.Load<GameObject>("ChankObject");
@@ -118,12 +123,7 @@ namespace BaseObjects
         public Chank(Vector3 chankPoint)
         {
             ChankPoint = chankPoint;
-            BlocksID = RunLoad(chankPoint);
-            if (BlocksID == null) 
-            {
-                BlocksID = TerrainGenerator.Run(chankPoint);
-                IsModifyed = true;
-            }
+            BlocksID = TerrainGenerator.Run(chankPoint);
 
         }
         
@@ -151,23 +151,7 @@ namespace BaseObjects
             BlocksID = bloksID;
             Chanks.Add(ChankPoint, this);
         }
-
-        public Chank(Vector3 chankPoint, int[,,] bloksIDData)
-        {
-            ChankPoint = chankPoint;
-            for (int x = 0; x < bloksIDData.GetLength(0); x++)
-            {
-                for (int y = 0; y < bloksIDData.GetLength(1); y++)
-                {
-                    for (int z = 0; z < bloksIDData.GetLength(2); z++)
-                    {
-                        if (bloksIDData[x, y, z] != 0)
-                        BlocksID.Add(new Vector3Int(x, y, z), bloksIDData[x, y, z]);
-                    }
-                }
-            }
-
-        }
+        
 
         // --—татические метожы--
         public static void AddChank(Vector3 newChankPoint)
@@ -193,119 +177,21 @@ namespace BaseObjects
                 Chanks.Add(newChankPoint, new Chank(newChankPoint, bloksIDData));
             }
         }
-
-        public static void AddChank(Vector3 newChankPoint, int[,,] bloksIDData)
-        {
-            if (!Chanks.ContainsKey(newChankPoint))
-            {
-                Chanks.Add(newChankPoint, new Chank(newChankPoint, bloksIDData));
-            }
-        }
-
-        private Dictionary<Vector3Int, int> RunLoad(Vector3 newChankPoint)
-        {
-            string StorePath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + @"\MyServerData\GameData.db";
-            string Params = "Data Source=" + StorePath + ";Foreign Keys = true";
-            SqliteConnection SQLConnection = new SqliteConnection(Params);
-            SqliteCommand SQLComand = SQLConnection.CreateCommand();
-            SQLConnection.Open();
-            // чанки иблоки
-            SQLComand.CommandText = "SELECT ID FROM Shanks WHERE WorldID = 1 AND X=" + newChankPoint.x + " AND Y=" + newChankPoint.y + " AND Z=" + newChankPoint.z + ";";
-            SqliteDataReader Reader = SQLComand.ExecuteReader();
-            if (!Reader.HasRows) // - мир пустой или не найден
-            {
-                Reader.Close();
-                return null;
-            }
-
-            Reader.Read();
-                
-            Dictionary<Vector3Int, int> LoadBloksID = new Dictionary<Vector3Int, int>();
-            string CommandText = "SELECT X , Y , Z , ID FROM Blocks WHERE ShankID = " + Reader["ID"] + ";";
-            Reader.Close();
-            SQLComand.CommandText = CommandText;
-            Reader = SQLComand.ExecuteReader();
-
-            if (!Reader.HasRows) // - чанк пустой берем смледующий
-            {
-                Reader.Close();
-                SQLConnection.Close();
-                return null;
-            }
-
-            while (Reader.Read())
-            {
-
-                LoadBloksID.Add(new Vector3Int(Reader.GetInt32("X"), Reader.GetInt32("Y"), Reader.GetInt32("Z")), Reader.GetInt32("ID"));
-            }
-            Reader.Close();
-            SQLConnection.Close();
-            return LoadBloksID;
-        }
-        
-        public void Save()
-        {
-            Chanks.Remove(ChankPoint);
-            if (IsModifyed)
-            {
-                Thread RunerThread;
-                string StorePath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + @"\MyServerData\GameData.db";
-                string Params = "Data Source=" + StorePath + ";Foreign Keys = true";
-                SqliteConnection SQLConnection = new SqliteConnection(Params);
-                SqliteCommand SQLCommand = SQLConnection.CreateCommand();
-                SQLConnection.Open();
-
-                // - чанки и блоки
-                SQLCommand.CommandText = "SELECT ID FROM Shanks WHERE WorldID='1'  AND X=" + this.ChankPoint.x + " AND Y=" + this.ChankPoint.y + " AND Z=" + this.ChankPoint.z + ";";
-                SqliteDataReader Reader = SQLCommand.ExecuteReader();
-                int id;
-
-                if (Reader.HasRows)
-                {
-                    Reader.Read();
-                    id = Reader.GetInt32("ID");
-                    Reader.Close();
-                }
-                else
-                {
-                    Reader.Close();
-                    SQLCommand.CommandText = "SELECT ID FROM Shanks WHERE WorldID='1' ORDER BY id DESC LIMIT 1;";
-                    Reader = SQLCommand.ExecuteReader();
-                    if (Reader.HasRows)
-                    {
-                        Reader.Read();
-                        id = Reader.GetInt32("ID") + 1;
-                        Reader.Close();
-                    }
-                    else
-                    {
-                        Reader.Close();
-                        id = 0;
-                    }
-                    SQLCommand.CommandText = "INSERT INTO Shanks (WorldID , X , Y , Z , ID) VALUES (1," + this.ChankPoint.x + "," + this.ChankPoint.y + "," + this.ChankPoint.z + "," + id + ")";
-                    SQLCommand.ExecuteNonQuery();
-                }
-                SQLConnection.Close();
-
-                List<string> SQLCommandList = new List<string>();
-
-
-                SQLCommandList.Add("BEGIN TRANSACTION;");
-                SQLCommandList.Add("DELETE FROM Blocks WHERE ShankID=" + id + ";");
-                foreach (KeyValuePair<Vector3Int, int> block in this.BlocksID)
-                {
-                    SQLCommandList.Add("INSERT INTO Blocks (ShankID , X , Y , Z , ID) VALUES (" + id.ToString() + "," + block.Key.x.ToString() + "," + block.Key.y.ToString() + "," + block.Key.z.ToString() + "," + block.Value.ToString() + ");");
-                }
-                SQLCommandList.Add("COMMIT;");
-
-                SQLRuner CommandRuner = new SQLRuner(SQLCommandList);
-                RunerThread = new Thread(new ThreadStart(CommandRuner.SendLoop));
-                RunerThread.IsBackground = true;
-                RunerThread.Start();
-            }
-        }
-
         /*
+        public static void Save()
+        {
+
+
+            ChankDataList DataList = new ChankDataList(Chanks);
+
+            string Json = JsonUtility.ToJson(DataList);
+            string JsonName = @"\ChankList.Json";
+            
+
+
+        }
+
+
         public static void Load()
         {
             string JsonName = @"\ChankList.Json";
@@ -324,37 +210,12 @@ namespace BaseObjects
         }
         */
         //--√лобальные--
-
-
         public void Render()
         {
-            LoadNearbyChanks();
-
             GenerateMesh();
 
             UpdateObjectMash();
         }
-
-        private void LoadNearbyChanks()
-        {
-            if (!Chanks.ContainsKey(ChankPoint + (Vector3.forward * 20)))
-            {
-                AddChank(ChankPoint + (Vector3.forward * 20));
-            }
-            if (!Chanks.ContainsKey(ChankPoint + (Vector3.back * 20)))
-            {
-                AddChank(ChankPoint + (Vector3.back * 20));
-            }
-            if (!Chanks.ContainsKey(ChankPoint + (Vector3.left * 20)))
-            {
-                AddChank(ChankPoint + (Vector3.left * 20));
-            }
-            if (!Chanks.ContainsKey(ChankPoint + (Vector3.right * 20)))
-            {
-                AddChank(ChankPoint + (Vector3.right * 20));
-            }
-        }
-
 
         private void UpdateObjectMash()
         {
@@ -447,7 +308,6 @@ namespace BaseObjects
         {
             if(!BlocksID.ContainsKey(point))
             {
-                IsModifyed = true;
                 BlocksID.Add(point, id);
                 AddBlockMash(point, id);
 
@@ -470,7 +330,6 @@ namespace BaseObjects
         {
             if (BlocksID.ContainsKey(point))
             {
-                IsModifyed = true;
                 //AddBlockMash(point, id);
                 List<int> NearBlocksSides = CutAllBlockMash(point);
                 BlocksID.Remove(point);
@@ -825,35 +684,6 @@ namespace BaseObjects
         }
     }
 
-    public class SQLRuner
-    {
-        List<string> SQLommandTextList;
 
-        public SQLRuner(List<string> sQLommandTextList)
-        {
-            SQLommandTextList = sQLommandTextList;
-        }
-
-        public void SendLoop()
-        {
-            if (SQLommandTextList != null)
-            {
-                Debug.Log("SQL-ранер стартовал(" + SQLommandTextList.Count + ")");
-                string StorePath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + @"\MyServerData\GameData.db";
-                string Params = "Data Source=" + StorePath + ";Foreign Keys = true";
-                SqliteConnection SQLConnection = new SqliteConnection(Params);
-                SqliteCommand SQLComand = SQLConnection.CreateCommand();
-                SQLConnection.Open();
-
-                foreach (string SQLommandText in SQLommandTextList)
-                {
-                    SQLComand.CommandText = SQLommandText;
-                    SQLComand.ExecuteNonQuery();
-                }
-                Debug.Log("SQL-ранер остановилс€");
-            }
-
-        }
-    }
 }
 

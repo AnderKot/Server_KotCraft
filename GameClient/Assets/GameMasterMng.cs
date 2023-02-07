@@ -7,14 +7,17 @@ using System.Data;
 using System;
 using System.IO;
 using System.Net.NetworkInformation;
-using ObjectsData;
 using System.Runtime.Serialization.Formatters.Binary;
+using ObjectsData;
 
 public class GameMasterMng : MonoBehaviour
 {
     public bool IsRender;
+    public bool IsGenerate;
     public bool IsRenderOne;
     public bool IsGenerateOne;
+    public bool IsSave;
+    public bool IsLoad;
     public bool SQLOk;
     public bool IsSetBlock; 
     public bool IsDeleteBlock;
@@ -42,12 +45,20 @@ public class GameMasterMng : MonoBehaviour
             IsRender = false;
             foreach (KeyValuePair<Vector3, Chank> chank in Chank.Chanks)
             {
-                if (chank.Value.MyObject == null)
-                {
-                    chank.Value.Render();
-                    break;
-                }
+                chank.Value.Render();
+            }
+        }
 
+        if (IsGenerate)
+        {
+            IsGenerate = false;
+            for (int x = 0; x < 20; x++)
+            {
+                for (int y = -1; y < 3; y++)
+                {
+                    for (int z = 0; z < 20; z++)
+                        Chank.AddChank(new Vector3(x * 20, 0, z * 20));
+                }
             }
         }
 
@@ -63,6 +74,19 @@ public class GameMasterMng : MonoBehaviour
             IsGenerateOne = false;
 
             Chank.AddChank(new Vector3(X * 20, 0, Z * 20));
+        }
+
+        if (IsSave)
+        {
+            IsSave = false;
+            RunSave();
+        }
+
+
+        if (IsLoad)
+        {
+            IsLoad = false;
+            RunLoad();
         }
 
         if(IsSetBlock)
@@ -121,7 +145,7 @@ public class GameMasterMng : MonoBehaviour
 
     }
 
-    private void RunPackaging()
+    private void RunSave()
     {
         string StorePath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + @"\MyServerData\GameData.bin";
         if (File.Exists(StorePath))
@@ -135,7 +159,7 @@ public class GameMasterMng : MonoBehaviour
         NewFile.Close();
     }
 
-    private void RunUnpacking()
+    private void RunLoad()
     {
         string StorePath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + @"\MyServerData\GameData.bin";
         if (File.Exists(StorePath))
@@ -143,15 +167,12 @@ public class GameMasterMng : MonoBehaviour
             FileStream OldFile = new FileStream(StorePath, FileMode.Open);
             BinaryFormatter formatter = new BinaryFormatter();
             ChankDataList DataList = (ChankDataList)formatter.Deserialize(OldFile);
-            foreach (ChankData chank in DataList.Chanks)
-            {
-                Chank.AddChank(new Vector3(chank.Point_x, chank.Point_y, chank.Point_z), chank.BlocksID);
-            }
+            DataList.SetCurrData();
             OldFile.Close();
         }
     }
-
-    private void RunSave()
+        
+    private void RunSaveOLd()
     {
         string StorePath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + @"\MyServerData\GameData.db";
         string Params = "Data Source=" + StorePath + ";Foreign Keys = true";
@@ -204,8 +225,8 @@ public class GameMasterMng : MonoBehaviour
 
         SQLConnection.Close();
     }
-    /*
-    private void RunLoad()
+
+    private void RunLoadold()
     {
         string StorePath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + @"\MyServerData\GameData.db";
         string Params = "Data Source=" + StorePath + ";Foreign Keys = true";
@@ -251,5 +272,4 @@ public class GameMasterMng : MonoBehaviour
 
         SQLConnection.Close();
     }
-    */
 }

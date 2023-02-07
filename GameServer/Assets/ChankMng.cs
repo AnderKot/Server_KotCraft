@@ -6,24 +6,9 @@ using BaseObjects;
 
 public class ChankMng : MonoBehaviour
 {
-    private Chank MyChank;
-
-    void Start()
+    private void OnDestroy()
     {
-        
-
-        //MyChank = new Chank(this, transform.position, );
+        Chank.Chanks[transform.position].Save();
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-        
-    }
-
-    public void RenderSelf()
-    {
-        MyChank.Render();
-        //GetComponent<MeshFilter>().mesh = MyChank.MyMesh;
-    }
 }
