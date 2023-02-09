@@ -11,6 +11,8 @@ using MyNET;
 using System.Net.Http;
 using UnityEngine.UIElements;
 using System.Security;
+using UnityEditor.PackageManager;
+using BaseCreature;
 
 public class MyNETServer : MonoBehaviour
 {
@@ -31,7 +33,8 @@ public class MyNETServer : MonoBehaviour
     private List<Packet> OutPackets = new List<Packet>();
     private float PingDelay = 1;
 
-    private List<EndPoint> Clients = new List<EndPoint>();
+    private Dictionary<EndPoint, Player> Clients = new Dictionary<EndPoint, Player>();
+    public bool IsAddTestClient;
     public int ClientsCount = 0;
 
     //
@@ -57,27 +60,33 @@ public class MyNETServer : MonoBehaviour
 
     void FixedUpdate()
     {
-        
+        if(IsAddTestClient)
+        {
+            IsAddTestClient = false;
+            InPackets.Add(new Packet(new IPEndPoint(IPAddress.Parse(IP+ClientsCount.ToString()), InPort), 0));
+        }
+
         // Разбор пришедших пакетов
-        foreach(Packet packet in InPackets)
+        foreach (Packet packet in InPackets)
         {
             string PointString = packet.Point.ToString();
             int SeparanotIndex = PointString.IndexOf(':');
             string ClientIP = PointString.Remove(SeparanotIndex, PointString.Length - SeparanotIndex);
             EndPoint ClientPoint = new IPEndPoint(IPAddress.Parse(ClientIP), OutPort);
 
-            if (! Clients.Contains(ClientPoint))
-            {
-                Clients.Add(ClientPoint);
-                ClientsCount++;
-                
-                OutPackets.Add(new Packet(ClientPoint, "Hi !"));
-                Debug.Log("UDP-Слушатель принял нового клиента:("+ ClientPoint + ")");
-            }
+
 
             switch (packet.GetPacketType())
             {
                 case 0:
+                    if (! Clients.ContainsKey(ClientPoint))
+                    {
+                        Clients.Add(ClientPoint, new Player(ClientIP));
+                        ClientsCount++;
+                
+                        OutPackets.Add(new Packet(ClientPoint, "Hi !"));
+                        Debug.Log("UDP-Слушатель принял нового клиента:("+ ClientPoint + ")");
+                    }
                     break;
                 case 1:
                     Message = packet.GetString();
@@ -86,24 +95,22 @@ public class MyNETServer : MonoBehaviour
                     break;
             }
         }
-
+        InPackets.Clear();
+        /*
         if (PingDelay <= 0)
         {
-            // Сборка пакетов на отправку
-            foreach (Transform ObservesObject in ObservesObjects)
-            {
-                TransformNETForm CurrTransformNET = new TransformNETForm(0, ObservesObject.position, ObservesObject.rotation);
-                // Для каждого клиента
-                foreach (EndPoint client in Clients)
+
+                // Позиции для самих клиентов
+                foreach (KeyValuePair<EndPoint, Player> client in Clients)
                 {
-                    OutPackets.Add(new Packet(client, CurrTransformNET));
+                    OutPackets.Add(new Packet(client.Key, client.Value.MyTransform));
                 }
-            }
-            PingDelay = 1;
+
         }
         PingDelay -= PingDelayStep;
-
+        */
         // Отправка пакетов
+
         if (!SenderThread.IsAlive & (OutPackets.Count > 0))
         {
             Sender.OutPackets.AddRange(OutPackets);

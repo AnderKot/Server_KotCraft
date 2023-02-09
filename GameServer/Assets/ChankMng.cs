@@ -8,7 +8,7 @@ public class ChankMng : MonoBehaviour
 {
     private void OnDestroy()
     {
-        Chank.Chanks[transform.position].Save();
+        Chank.Chanks[Vector3Int.FloorToInt(transform.position)].Save();
     }
 
 }

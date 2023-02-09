@@ -11,6 +11,7 @@ using System.Runtime.Serialization.Formatters.Binary;
 using System.IO;
 using Unity.VisualScripting.FullSerializer;
 using Unity.VisualScripting;
+using BaseCreature;
 
 namespace MyNET
 {
@@ -54,7 +55,7 @@ namespace MyNET
         public delegate void ExampleCallback(string message);
     }
 
-    
+
 
     public class UDPObserver
     {
@@ -97,7 +98,7 @@ namespace MyNET
                     Run = false;
                     Debug.Log("UDP-слушатель остановлен");
                 }
-            }            
+            }
         }
     }
 
@@ -113,6 +114,12 @@ namespace MyNET
         }
 
         // -- типизированные сообщения
+        public Packet(EndPoint point, int Type)
+        {
+            Point = point;
+            Data.Add((byte)Type);
+        }
+
         public Packet(EndPoint point, string message)
         {
             Point = point;
@@ -123,10 +130,24 @@ namespace MyNET
         public Packet(EndPoint point, TransformNETForm transfonNET)
         {
             Point = point;
-            
+
             BinaryFormatter formatter = new BinaryFormatter();
             MemoryStream streamReader = new MemoryStream();
             formatter.Serialize(streamReader, transfonNET);
+            byte[] data = new byte[streamReader.Length];
+            streamReader.Read(data, 0, data.Length);
+
+            Data.Add(2);
+            Data.AddRange(data);
+        }
+
+        public Packet(EndPoint point, Transform transfom)
+        {
+            Point = point;
+            TransformNETForm transfomNET = new TransformNETForm(0,transfom.position, transfom.rotation);
+            BinaryFormatter formatter = new BinaryFormatter();
+            MemoryStream streamReader = new MemoryStream();
+            formatter.Serialize(streamReader, transfomNET);
             byte[] data = new byte[streamReader.Length];
             streamReader.Read(data, 0, data.Length);
 
@@ -143,7 +164,7 @@ namespace MyNET
         // -- Взять сообщение по типу
         public int GetPacketType()
         {
-            return (int)Data[1];
+            return (int)Data[0];
         }
 
         public string GetString()
@@ -159,7 +180,7 @@ namespace MyNET
     [Serializable]
     public class TransformNETForm
     {
-        public int NETID { get; set; }
+        //public int NETID { get; set; }
 
         public float PositionX { get; set; }
         public float PositionY { get; set; }
@@ -172,7 +193,7 @@ namespace MyNET
 
         public TransformNETForm(int netID, Vector3 position, Quaternion rotation)
         {
-            NETID = NETID;
+            //NETID = NETID;
 
             PositionX = position.x;
             PositionY = position.y;
@@ -190,8 +211,21 @@ namespace MyNET
         }
         public Quaternion GetRotation()
         {
-            return (new Quaternion(RotationX,RotationY,RotationZ,RotationW));
+            return (new Quaternion(RotationX, RotationY, RotationZ, RotationW));
         }
     }
+    /*
+    public class Client
+    {
+        IP ip;
+        Player MyPlayer;
 
+
+        public Client(string ip)
+        {
+            IP = ip;
+            MyPlayer = new Player();
+        }
+    }
+    */
 }

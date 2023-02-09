@@ -40,7 +40,7 @@ public class GameMasterMng : MonoBehaviour
         if (IsRender)
         {
             IsRender = false;
-            foreach (KeyValuePair<Vector3, Chank> chank in Chank.Chanks)
+            foreach (KeyValuePair<Vector3Int, Chank> chank in Chank.Chanks)
             {
                 if (chank.Value.MyObject == null)
                 {
@@ -54,7 +54,7 @@ public class GameMasterMng : MonoBehaviour
         if (IsRenderOne)
         {
             IsRenderOne = false;
-            Chank.Chanks[new Vector3(X * 20, 0, Z * 20)].Render();
+            Chank.Chanks[new Vector3Int(X * 20, 0, Z * 20)].Render();
 
         }
 
@@ -62,19 +62,19 @@ public class GameMasterMng : MonoBehaviour
         {
             IsGenerateOne = false;
 
-            Chank.AddChank(new Vector3(X * 20, 0, Z * 20));
+            Chank.AddChank(new Vector3Int(X * 20, 0, Z * 20));
         }
 
         if(IsSetBlock)
         {
             IsSetBlock = false;
-            Chank.Chanks[new Vector3(X * 20, 0, Z * 20)].SetBlock(new Vector3Int(Sub_X, Sub_Y , Sub_Z),1);
+            Chank.Chanks[new Vector3Int(X * 20, 0, Z * 20)].SetBlock(new Vector3Int(Sub_X, Sub_Y , Sub_Z),1);
         }
 
         if (IsDeleteBlock)
         {
             IsDeleteBlock = false;
-            Chank.Chanks[new Vector3(X * 20, 0, Z * 20)].DeleteBlock(new Vector3Int(Sub_X, Sub_Y, Sub_Z), 1);
+            Chank.Chanks[new Vector3Int(X * 20, 0, Z * 20)].DeleteBlock(new Vector3Int(Sub_X, Sub_Y, Sub_Z), 1);
         }
     }
 
@@ -114,6 +114,8 @@ public class GameMasterMng : MonoBehaviour
             SQLComand.ExecuteNonQuery();
             SQLComand.CommandText = "CREATE TABLE Blocks (ShankID INT, X INT, Y INT, Z INT, ID INT, PRIMARY KEY (ShankID, X, Y, Z), CONSTRAINT FKChankID FOREIGN KEY (ShankID) REFERENCES Shanks(ID) ON DELETE CASCADE);";
             SQLComand.ExecuteNonQuery();
+            SQLComand.CommandText = "CREATE TABLE Clients (IP String, X FLOAT, Y FLOAT, Z FLOAT, Name TEXT[30], PRIMARY KEY (IP));";
+            SQLComand.ExecuteNonQuery();
             SQLOk = true;
         }
 
@@ -145,7 +147,7 @@ public class GameMasterMng : MonoBehaviour
             ChankDataList DataList = (ChankDataList)formatter.Deserialize(OldFile);
             foreach (ChankData chank in DataList.Chanks)
             {
-                Chank.AddChank(new Vector3(chank.Point_x, chank.Point_y, chank.Point_z), chank.BlocksID);
+                Chank.AddChank(new Vector3Int(chank.Point_x, chank.Point_y, chank.Point_z), chank.BlocksID);
             }
             OldFile.Close();
         }
@@ -175,7 +177,7 @@ public class GameMasterMng : MonoBehaviour
 
         SQLComand.CommandText = "BEGIN TRANSACTION";
         SQLComand.ExecuteNonQuery();
-        foreach (KeyValuePair<Vector3, Chank> chank in Chank.Chanks)
+        foreach (KeyValuePair<Vector3Int, Chank> chank in Chank.Chanks)
         {
             if (chank.Value.BlocksID.Count > 0) // Если в чанке есть блоки
             {

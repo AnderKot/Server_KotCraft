@@ -69,14 +69,14 @@ namespace ObjectsData
         //public int[,,] BlockIDArrey;
         public List<BlocksIDData> BlocksID;
         [SerializeField]
-        public float Point_x;
+        public int Point_x;
         [SerializeField]
-        public float Point_y;
+        public int Point_y;
         [SerializeField]
-        public float Point_z;
+        public int Point_z;
 
 
-        public ChankData(Vector3 point, Dictionary<Vector3Int, int> blocksID)
+        public ChankData(Vector3Int point, Dictionary<Vector3Int, int> blocksID)
         {
             BlocksID = new List<BlocksIDData>();
             Point_x = point.x;
@@ -97,11 +97,11 @@ namespace ObjectsData
         [SerializeField]
         public List<ChankData> Chanks;
 
-        public ChankDataList(Dictionary<Vector3, Chank> chanks)
+        public ChankDataList(Dictionary<Vector3Int, Chank> chanks)
         {
             Chanks = new List<ChankData>();
 
-            foreach (KeyValuePair<Vector3, Chank> chank in chanks)
+            foreach (KeyValuePair<Vector3Int, Chank> chank in chanks)
             {
                 ChankData chankData = new ChankData(chank.Key, chank.Value.BlocksID);
                 //if(chankData.BlocksID.Count > 0)

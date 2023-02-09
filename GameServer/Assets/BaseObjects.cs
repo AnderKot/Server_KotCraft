@@ -93,21 +93,22 @@ namespace BaseObjects
     {
         public Dictionary<Vector3Int, int> BlocksID = new Dictionary<Vector3Int, int>();
         //public int[,,] BloksID = new int[20, 20, 20];
-        public Vector3 ChankPoint;
+        public Vector3Int ChankPoint;
         public GameObject MyObject;
-        public bool IsModifyed;
+        public bool IsModifyed = false;
 
         //static Vector3Int[,] Verticles = new Vector3Int[2,2];
         private List<Vector3> Verticles = new List<Vector3>();
         private List<int> Triangles = new List<int>();
-        public Mesh MyMesh = new Mesh();
+        public bool MyMeshReady = false;
+        public bool MyMeshInPrerender = false;
         public List<Vector2> MyUVasID = new List<Vector2>();
         public List<Vector2> MyUV = new List<Vector2>();
         public List<MyMeshInfo> StartMeshPointers = new List<MyMeshInfo>();
 
         // --Статические поля--
         private static GameObject ChankGameObject = Resources.Load<GameObject>("ChankObject");
-        public static Dictionary<Vector3, Chank> Chanks = new Dictionary<Vector3, Chank>();
+        public static Dictionary<Vector3Int, Chank> Chanks = new Dictionary<Vector3Int, Chank>();
 
         // --Конструкторы--
         public Chank()
@@ -115,7 +116,7 @@ namespace BaseObjects
             //ChankMash.SetIndexBufferData
         }
 
-        public Chank(Vector3 chankPoint)
+        public Chank(Vector3Int chankPoint)
         {
             ChankPoint = chankPoint;
             BlocksID = RunLoad(chankPoint);
@@ -124,17 +125,16 @@ namespace BaseObjects
                 BlocksID = TerrainGenerator.Run(chankPoint);
                 IsModifyed = true;
             }
-
         }
         
-        public Chank(Vector3 chankPoint, Dictionary<Vector3Int, int> bloksID)
+        public Chank(Vector3Int chankPoint, Dictionary<Vector3Int, int> bloksID)
         {
             ChankPoint = chankPoint;
             BlocksID = bloksID;
 
         }
 
-        public Chank(Vector3 chankPoint, List<BlocksIDData> bloksIDData)
+        public Chank(Vector3Int chankPoint, List<BlocksIDData> bloksIDData)
         {
             ChankPoint = chankPoint;
             foreach (BlocksIDData idData in bloksIDData)
@@ -144,7 +144,7 @@ namespace BaseObjects
 
         }
 
-        public Chank(GameObject myObject, Vector3 chankPoint, Dictionary<Vector3Int, int> bloksID)
+        public Chank(GameObject myObject, Vector3Int chankPoint, Dictionary<Vector3Int, int> bloksID)
         {
             MyObject = myObject;
             ChankPoint = chankPoint;
@@ -152,7 +152,7 @@ namespace BaseObjects
             Chanks.Add(ChankPoint, this);
         }
 
-        public Chank(Vector3 chankPoint, int[,,] bloksIDData)
+        public Chank(Vector3Int chankPoint, int[,,] bloksIDData)
         {
             ChankPoint = chankPoint;
             for (int x = 0; x < bloksIDData.GetLength(0); x++)
@@ -170,15 +170,15 @@ namespace BaseObjects
         }
 
         // --Статические метожы--
-        public static void AddChank(Vector3 newChankPoint)
+        public static void AddChank(Vector3Int newChankPoint)
         {
             if(!Chanks.ContainsKey(newChankPoint))
             {
-                Chanks.Add(newChankPoint, new Chank(newChankPoint));
+                Chanks.TryAdd(newChankPoint, new Chank(newChankPoint));
             }
         }
 
-        public static void AddChank(Vector3 newChankPoint, Dictionary<Vector3Int, int> bloksID)
+        public static void AddChank(Vector3Int newChankPoint, Dictionary<Vector3Int, int> bloksID)
         {
             if (!Chanks.ContainsKey(newChankPoint))
             {
@@ -186,7 +186,7 @@ namespace BaseObjects
             }
         }
 
-        public static void AddChank(Vector3 newChankPoint, List<BlocksIDData> bloksIDData)
+        public static void AddChank(Vector3Int newChankPoint, List<BlocksIDData> bloksIDData)
         {
             if (!Chanks.ContainsKey(newChankPoint))
             {
@@ -194,7 +194,7 @@ namespace BaseObjects
             }
         }
 
-        public static void AddChank(Vector3 newChankPoint, int[,,] bloksIDData)
+        public static void AddChank(Vector3Int newChankPoint, int[,,] bloksIDData)
         {
             if (!Chanks.ContainsKey(newChankPoint))
             {
@@ -324,41 +324,85 @@ namespace BaseObjects
         }
         */
         //--Глобальные--
-
-
-        public void Render()
+        public static bool Render(Vector3Int point) //Показ меша
         {
-            LoadNearbyChanks();
-
-            GenerateMesh();
-
-            UpdateObjectMash();
+            if (Chanks.ContainsKey(point))
+            {
+                return Chanks[point].Render();
+            }
+            return false;
         }
+
+        public bool Render()
+        {
+            if ((MyObject == null) & MyMeshReady)
+            {
+                //PreRender();
+
+                UpdateObjectMash();
+
+                Debug.Log("Отрендерен чанк:" + ChankPoint);
+                return true;
+            }
+
+            return (MyObject != null);
+        }
+
+        public static void PreRender(Vector3Int point) // Подготовка меша
+        {
+            if (Chanks.ContainsKey(point))
+            {
+                Chanks[point].PreRender();
+            }
+        }
+
+        public void PreRender()
+        {
+            if (!MyMeshReady & !MyMeshInPrerender)
+            {
+                MyMeshInPrerender = true;
+                LoadNearbyChanks();
+
+                RegenetaneMesh();
+
+                Debug.Log("Подготовил чанк:" + ChankPoint);
+            }
+
+        }
+
+
 
         private void LoadNearbyChanks()
         {
-            if (!Chanks.ContainsKey(ChankPoint + (Vector3.forward * 20)))
+            if (!Chanks.ContainsKey(ChankPoint + (Vector3Int.forward * 20)))
             {
-                AddChank(ChankPoint + (Vector3.forward * 20));
+                AddChank(ChankPoint + (Vector3Int.forward * 20));
             }
-            if (!Chanks.ContainsKey(ChankPoint + (Vector3.back * 20)))
+            if (!Chanks.ContainsKey(ChankPoint + (Vector3Int.back * 20)))
             {
-                AddChank(ChankPoint + (Vector3.back * 20));
+                AddChank(ChankPoint + (Vector3Int.back * 20));
             }
-            if (!Chanks.ContainsKey(ChankPoint + (Vector3.left * 20)))
+            if (!Chanks.ContainsKey(ChankPoint + (Vector3Int.left * 20)))
             {
-                AddChank(ChankPoint + (Vector3.left * 20));
+                AddChank(ChankPoint + (Vector3Int.left * 20));
             }
-            if (!Chanks.ContainsKey(ChankPoint + (Vector3.right * 20)))
+            if (!Chanks.ContainsKey(ChankPoint + (Vector3Int.right * 20)))
             {
-                AddChank(ChankPoint + (Vector3.right * 20));
+                AddChank(ChankPoint + (Vector3Int.right * 20));
             }
         }
 
 
         private void UpdateObjectMash()
         {
-            MyMesh.Clear();
+            if (!MyObject)
+            {
+                MyObject = GameObject.Instantiate(ChankGameObject) as GameObject;
+                MyObject.transform.position = this.ChankPoint;
+            }
+
+            Mesh MyMesh = new Mesh();
+            //MyMesh.Clear();
             MyMesh.vertices = Verticles.ToArray();
             MyMesh.triangles = Triangles.ToArray();
             //MyMesh.uv
@@ -367,23 +411,25 @@ namespace BaseObjects
 
             MyMesh.RecalculateBounds();
             MyMesh.RecalculateNormals();
+            /*
+            MyObject.GetComponent<MeshFilter>().sharedMesh.vertices = Verticles.ToArray();
+            MyObject.GetComponent<MeshFilter>().sharedMesh.triangles = Triangles.ToArray();
+            //MyMesh.uv
+            MyObject.GetComponent<MeshFilter>().sharedMesh.uv = MyUVasID.ToArray();
+            MyObject.GetComponent<MeshFilter>().sharedMesh.uv2 = MyUV.ToArray();
 
-            if (!MyObject)
-            {
-                MyObject = GameObject.Instantiate(ChankGameObject) as GameObject;
-                MyObject.transform.position = this.ChankPoint;
-            }
+            MyObject.GetComponent<MeshFilter>().sharedMesh.RecalculateBounds();
+            MyObject.GetComponent<MeshFilter>().sharedMesh.RecalculateNormals();
 
-            if (MyObject)
-            {
-                MyObject.GetComponent<MeshFilter>().sharedMesh = MyMesh;
-                MyObject.GetComponent<MeshCollider>().sharedMesh = MyMesh;
-            }
+            MyObject.GetComponent<MeshCollider>().sharedMesh.vertices = Verticles.ToArray();
+            MyObject.GetComponent<MeshCollider>().sharedMesh.triangles = Triangles.ToArray();
+            */
+            MyObject.GetComponent<MeshFilter>().sharedMesh = MyMesh;
+            MyObject.GetComponent<MeshCollider>().sharedMesh = MyMesh;
         }
 
         public void Show ()
         {
-            
             MyObject.SetActive(true);
         }
 
@@ -397,7 +443,7 @@ namespace BaseObjects
         //--Приватные--
         private int GetLocalBlockID(Vector3Int BlockPoint)
         {
-            Vector3 OtherChankPoint = this.ChankPoint;
+            Vector3Int OtherChankPoint = this.ChankPoint;
             Vector3Int OtheBlockPoint = BlockPoint;
             int BlockID = 0;
 
@@ -625,22 +671,26 @@ namespace BaseObjects
             }
         }
         
-
-        private void GenerateMesh()
+        private void RegenetaneMesh()
         {
-
             Verticles.Clear();
             Triangles.Clear();
             MyUV.Clear();
             MyUVasID.Clear();
             StartMeshPointers.Clear();
 
+            GenerateMesh();
+
+        }
+        private void GenerateMesh()
+        {
             foreach (KeyValuePair<Vector3Int, int> currBlock in this.BlocksID) 
             {
                 if (currBlock.Value == 0) return;
 
                 AddBlockMash(currBlock.Key, currBlock.Value);
             }
+            MyMeshReady = true;
         }
 
         private void AddBlockMash(Vector3Int point, int id)
@@ -853,6 +903,24 @@ namespace BaseObjects
                 Debug.Log("SQL-ранер остановился");
             }
 
+        }
+    }
+
+    public class ChankPreRender
+    {
+        List<Vector3Int> ChankPoints = new List<Vector3Int>();
+
+        public ChankPreRender(List<Vector3Int> chankPoints)
+        {
+            ChankPoints.AddRange(chankPoints);
+        }
+        
+        public void RenderLoop()
+        {
+            foreach (Vector3Int chankPoint in ChankPoints)
+            {
+                Chank.PreRender(chankPoint);
+            }
         }
     }
 }
