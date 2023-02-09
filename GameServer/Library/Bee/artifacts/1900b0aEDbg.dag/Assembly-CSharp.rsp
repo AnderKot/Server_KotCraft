@@ -116,6 +116,7 @@
 -define:TEXTCORE_FONT_ENGINE_1_5_OR_NEWER
 -define:CSHARP_7_OR_LATER
 -define:CSHARP_7_3_OR_NEWER
+-r:"Assets/Plugins/Mono.Data.Sqlite.dll"
 -r:"C:/Program Files/Unity/Hub/Editor/2021.3.16f1/Editor/Data/Managed/UnityEngine/UnityEditor.CoreModule.dll"
 -r:"C:/Program Files/Unity/Hub/Editor/2021.3.16f1/Editor/Data/Managed/UnityEngine/UnityEditor.DeviceSimulatorModule.dll"
 -r:"C:/Program Files/Unity/Hub/Editor/2021.3.16f1/Editor/Data/Managed/UnityEngine/UnityEditor.DiagnosticsModule.dll"
@@ -349,9 +350,16 @@
 -r:"Library/Bee/artifacts/1900b0aEDbg.dag/Unity.VSCode.Editor.ref.dll"
 -r:"Library/Bee/artifacts/1900b0aEDbg.dag/UnityEditor.UI.ref.dll"
 -r:"Library/Bee/artifacts/1900b0aEDbg.dag/UnityEngine.UI.ref.dll"
+"Assets/BaseCreature.cs"
 "Assets/BaseObjects.cs"
 "Assets/ChankMng.cs"
+"Assets/CreatureData.cs"
 "Assets/GameMasterMng.cs"
+"Assets/MyNET.cs"
+"Assets/MyNETServer.cs"
+"Assets/ObjectsData.cs"
+"Assets/PlayChankLoader.cs"
+"Assets/PlayerChankLoader.cs"
 "Assets/Render.cs"
 "Assets/TerrainGenerator.cs"
 -langversion:9.0
