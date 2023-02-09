@@ -44,7 +44,7 @@ Shader "Custom/ChankShader"
             float y = IN.worldPos.y * _Scale;
             float z = IN.worldPos.z * _Scale;
 
-            float IsUp = abs(IN.worldNormal.y);
+            float IsUp = (IN.worldNormal.y);
             float IsFront = abs(IN.worldNormal.x);
             float IsRight = abs(IN.worldNormal.z);
 

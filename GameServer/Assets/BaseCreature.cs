@@ -10,6 +10,9 @@ using BaseObjects;
 using System.Net;
 using UnityEditor.PackageManager;
 using UnityEngine.Rendering;
+using System.Threading;
+using MyNET;
+using UnityEngine.Rendering.RendererUtils;
 
 namespace BaseCreature 
 {
@@ -19,8 +22,11 @@ namespace BaseCreature
         string Name;
         public Vector3 MyPosition;
         GameObject MyObject;
+        //ChankLoader ChankLoader;
+        Thread CalcCurrChankThread;
         Vector3Int CurrChank;
-        Vector3Int CurrLocals;
+
+
 
         private static GameObject PlayerGameObject = Resources.Load<GameObject>("Player");
 
@@ -29,8 +35,8 @@ namespace BaseCreature
         {
             IP = ip;
             MyPosition = GetStorePosition(ip);
-            CalcCurrChank();
             Spawn();
+            StartCalcTread();
         }
 
         static Vector3 GetStorePosition(string ip)
@@ -77,21 +83,122 @@ namespace BaseCreature
 
             }
             MyObject = GameObject.Instantiate(PlayerGameObject, MyPosition, new Quaternion(0, 0, 0, 1)) as GameObject;
-            MyObject.GetComponent<PlayerChankLoader>().ChankBack = SetCurrChank;
+            MyObject.GetComponent<PlayerObserver>().PosBack = SetCurrPos;
+            MyObject.GetComponent<PlayerObserver>().TriggerBack = StopСalculation;
+        }
+        
+        public void SetCurrPos(Vector3 currPos)
+        {
+            MyPosition = currPos;
         }
 
-        private void CalcCurrChank()
+        public Vector3 GetCurrPos()
         {
-            CurrChank = new Vector3Int((int)MyPosition.x / 20
-                                      ,0
-                                      ,(int)MyPosition.z / 20) * 20;
-
-            CurrLocals = Vector3Int.FloorToInt(MyPosition) - CurrChank;
+            return MyPosition;
         }
 
-        public void SetCurrChank(Vector3Int currChank)
+        public void SetCurrChank(Vector3Int newCurrChank)
         {
-            CurrChank = currChank;
+
+            Vector3Int Delta = newCurrChank - CurrChank;
+            CurrChank = newCurrChank;
+            
+            StartPreRender(newCurrChank + Delta);
+            if (Delta.x == 0)
+            {
+                StartPreRender(newCurrChank + Delta + (Vector3Int.right * 20));
+                StartPreRender(newCurrChank + Delta + (Vector3Int.left * 20));
+            }
+            else
+            {
+                StartPreRender(newCurrChank + Delta + (Vector3Int.forward * 20));
+                StartPreRender(newCurrChank + Delta + (Vector3Int.back * 20));
+            }
+
+        }
+
+        public Vector3 GetCurrObjectPoint()
+        {
+            return MyPosition;
+        }
+
+        private void StartCalcTread()
+        {
+            CurrChankMng ChankMng = new CurrChankMng(MyObject.name, SetCurrChank, GetCurrPos);
+            CalcCurrChankThread = new Thread(new ThreadStart(ChankMng.CalcLoop));
+            CalcCurrChankThread.IsBackground = true;
+            CalcCurrChankThread.Start();
+        }
+
+        public void StopСalculation()
+        {
+            CalcCurrChankThread.Abort();
+            CalcCurrChankThread.Join();
+        }
+
+        private void StartPreRender(Vector3Int chankPoint)
+        {
+            ChankPreRender Render = new ChankPreRender(chankPoint);
+            Thread RenderThread = new Thread(new ThreadStart(Render.RenderLoop));
+            RenderThread.IsBackground = true;
+            RenderThread.Start();
+        }
+    }
+
+    public class CurrChankMng
+    {
+        private bool Run = true;
+        public Vector3Int CurrChankPoint;
+        private Vector3 ObjectPoint;
+
+        public delegate void OutCallback(Vector3Int point);
+        public OutCallback ReturnPoint;
+
+        public delegate Vector3 InCallback();
+        public InCallback GetPoint;
+
+        public string Name;
+
+        public CurrChankMng(string name, OutCallback returnPoint, InCallback getPoint)
+        {
+            Name = name;
+            ReturnPoint = returnPoint;
+            GetPoint = getPoint;
+        }
+
+        public void CalcLoop()
+        {
+            Debug.Log("Вычечления позиции для существа ("+ Name + ") Запущено");
+            while (Run)
+            {
+                try
+                {
+                    ObjectPoint = GetPoint();
+                    if (ObjectPoint != Vector3.zero)
+                    {
+                        Vector3Int point = Vector3Int.FloorToInt(ObjectPoint);
+                        Vector3Int NewCurrChank = new Vector3Int((point.x - (10 * (1 - (int)Mathf.Sign(point.x)))) / 20
+                                                            , 0
+                                                            , (point.z - (10 * (1 - (int)Mathf.Sign(point.z)))) / 20) * 20;
+
+                        if (CurrChankPoint != NewCurrChank)
+                        {
+                            CurrChankPoint = NewCurrChank;
+                            Debug.Log("Новый чанк существа (" + Name + ") (" + CurrChankPoint + ")");
+                            ReturnPoint(CurrChankPoint);
+                        }
+                    }
+                    Thread.Sleep(100);
+
+                }
+                catch
+                {
+                    Run = false;
+
+                }
+            }
+            Debug.Log("Вычечления позиции для существа(" + Name + ") Остановленно");
+
         }
     }
 }

@@ -83,9 +83,10 @@ public class MyNETServer : MonoBehaviour
                     {
                         Clients.Add(ClientPoint, new Player(ClientIP));
                         ClientsCount++;
-                
                         OutPackets.Add(new Packet(ClientPoint, "Hi !"));
                         Debug.Log("UDP-Слушатель принял нового клиента:("+ ClientPoint + ")");
+
+
                     }
                     break;
                 case 1:
