@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class PlayerObserver : MonoBehaviour
 {
-    public delegate void OutCallback(Vector3 currChank);
+    public delegate void OutCallback(Transform TForm);
     public OutCallback PosBack;
 
     public delegate void TriggerCallback();
@@ -13,7 +13,7 @@ public class PlayerObserver : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
-        PosBack(gameObject.transform.position);
+        PosBack(gameObject.transform);
     }
 
     private void OnDestroy()

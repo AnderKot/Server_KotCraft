@@ -21,7 +21,7 @@ namespace MyNET
         byte[] data = new byte[512];
 
         public List<Packet> OutPackets = new List<Packet>();
-
+        public EndPoint MyClient;
 
         public ExampleCallback callback;
 
@@ -34,13 +34,25 @@ namespace MyNET
 
             try
             {
-                foreach (Packet Outpacket in OutPackets)
+                if (MyClient == null)
                 {
-                    remoteOutPoint = Outpacket.Point;
-                    Task<int> ResultTask = OutUdpSocket.SendToAsync(Outpacket.GetData(), SocketFlags.None, remoteOutPoint);
-                    int R = ResultTask.Result;
-                    //Debug.Log("UDP-отправитель послал: " + Outpacket.Message + " в " + remoteOutPoint.ToString());
-                    Thread.Sleep(0);
+                    foreach (Packet Outpacket in OutPackets)
+                    {
+                        Task<int> ResultTask = OutUdpSocket.SendToAsync(Outpacket.GetData(), SocketFlags.None, Outpacket.Point);
+                        int R = ResultTask.Result;
+                        //Debug.Log("UDP-отправитель послал: " + Outpacket.Message + " в " + remoteOutPoint.ToString());
+                        Thread.Sleep(0);
+                    }
+                }
+                else 
+                {
+                    foreach (Packet Outpacket in OutPackets)
+                    {
+                        Task<int> ResultTask = OutUdpSocket.SendToAsync(Outpacket.GetData(), SocketFlags.None, MyClient);
+                        int R = ResultTask.Result;
+                        //Debug.Log("UDP-отправитель послал: " + Outpacket.Message + " в " + remoteOutPoint.ToString());
+                        Thread.Sleep(0);
+                    }
                 }
             }
             catch (ThreadAbortException)
@@ -117,13 +129,14 @@ namespace MyNET
         public Packet(EndPoint point, int Type)
         {
             Point = point;
+            Data.Add(1);
             Data.Add((byte)Type);
         }
 
         public Packet(EndPoint point, string message)
         {
             Point = point;
-            Data.Add(1);
+            Data.Add(2);
             Data.AddRange(Encoding.UTF8.GetBytes(message));
         }
 
@@ -137,7 +150,7 @@ namespace MyNET
             byte[] data = new byte[streamReader.Length];
             streamReader.Read(data, 0, data.Length);
 
-            Data.Add(2);
+            Data.Add(3);
             Data.AddRange(data);
         }
 
@@ -151,7 +164,7 @@ namespace MyNET
             byte[] data = new byte[streamReader.Length];
             streamReader.Read(data, 0, data.Length);
 
-            Data.Add(2);
+            Data.Add(3);
             Data.AddRange(data);
         }
 
@@ -170,6 +183,11 @@ namespace MyNET
         public string GetString()
         {
             return Encoding.UTF8.GetString(Data.GetRange(2, Data.Count).ToArray(), 0, Data.Count);
+        }
+
+        public int GetInt()
+        {
+            return Data.GetRange(2, Data.Count).ToArray().ConvertTo<Int32>();
         }
 
 

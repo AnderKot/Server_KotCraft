@@ -28,12 +28,12 @@ public class MyNETServer : MonoBehaviour
     private List<Packet> InPackets = new List<Packet>();
 
     // Для отправки
-    private UDPSender Sender;
-    private Thread SenderThread;
-    private List<Packet> OutPackets = new List<Packet>();
+    private static List<Packet> OutAlertPackets = new List<Packet>();
+    public  static List<Packet> OutPackets = new List<Packet>();
     private float PingDelay = 1;
 
-    private Dictionary<EndPoint, Player> Clients = new Dictionary<EndPoint, Player>();
+    private List<EndPoint> ClientPoints = new List<EndPoint>();
+    private List<Player> Players = new List<Player>(); 
     public bool IsAddTestClient;
     public int ClientsCount = 0;
 
@@ -51,12 +51,7 @@ public class MyNETServer : MonoBehaviour
         ObserverTread.IsBackground = true;
         ObserverTread.Start();
 
-        // Настройка отправки
-        Sender = new UDPSender();
-        SenderThread = new Thread(new ThreadStart(Sender.SendLoop));
-        SenderThread.IsBackground = true;
-        
-}
+    }
 
     void FixedUpdate()
     {
@@ -78,51 +73,75 @@ public class MyNETServer : MonoBehaviour
 
             switch (packet.GetPacketType())
             {
-                case 0:
-                    if (! Clients.ContainsKey(ClientPoint))
+                case 1:
+                    if (! ClientPoints.Contains(ClientPoint))
                     {
-                        Clients.Add(ClientPoint, new Player(ClientIP));
+                        ClientPoints.Add(ClientPoint);
+                        Players.Add(new Player(ClientIP, OutPort));
                         ClientsCount++;
-                        OutPackets.Add(new Packet(ClientPoint, "Hi !"));
-                        Debug.Log("UDP-Слушатель принял нового клиента:("+ ClientPoint + ")");
-
-
+                        OutAlertPackets.Add(new Packet(ClientPoint, ClientsCount));
+                        Debug.Log("Принял нового клиента:("+ ClientPoint + ")");
                     }
                     break;
-                case 1:
+                case 2:
                     Message = packet.GetString();
                     break;
-                case 2:
+                case 3:
                     break;
             }
+
+            Debug.Log("Обработанно пакетов (" + InPackets.Count + ")");
         }
         InPackets.Clear();
-        /*
+
+        // Отправка срочных пакетов
+        if (OutAlertPackets.Count > 0)
+        {
+            foreach (EndPoint client in ClientPoints)
+            {
+                // Настройка отправки
+                UDPSender Sender;
+                Thread SenderThread;
+
+                Sender = new UDPSender();
+                Sender.OutPackets.AddRange(OutAlertPackets);
+                SenderThread = new Thread(new ThreadStart(Sender.SendLoop));
+                SenderThread.IsBackground = true;
+                SenderThread.Start();
+                Debug.Log("Срочная UDP-Отправка клиентам (" + ClientPoints.Count + ") пакетов (" + OutAlertPackets.Count + ")");
+
+
+            }
+            OutAlertPackets.Clear();
+        }
+        
+        // Отправка не срочных пакетов
         if (PingDelay <= 0)
         {
-
-                // Позиции для самих клиентов
-                foreach (KeyValuePair<EndPoint, Player> client in Clients)
+            if (OutPackets.Count > 0)
+            {
+                foreach (EndPoint client in ClientPoints)
                 {
-                    OutPackets.Add(new Packet(client.Key, client.Value.MyTransform));
-                }
+                    // Настройка отправки
+                    UDPSender Sender;
+                    Thread SenderThread;
 
+                    Sender = new UDPSender();
+                    Sender.OutPackets.AddRange(OutPackets);
+                    SenderThread = new Thread(new ThreadStart(Sender.SendLoop));
+                    SenderThread.IsBackground = true;
+                    SenderThread.Start();
+                    Debug.Log("Обычная UDP-Отправка клиентам (" + ClientPoints.Count + ") пакетов (" + OutPackets.Count + ")");
+
+
+                }
+            }
+            PingDelay = 1;
         }
         PingDelay -= PingDelayStep;
-        */
-        // Отправка пакетов
+        OutPackets.Clear();
 
-        if (!SenderThread.IsAlive & (OutPackets.Count > 0))
-        {
-            Sender.OutPackets.AddRange(OutPackets);
-            SenderThread = new Thread(new ThreadStart(Sender.SendLoop));
-            SenderThread.IsBackground = true;
-            SenderThread.Start();
-            Debug.Log("UDP-Отправка клиентам (" + Clients.Count + ") пакетов (" + OutPackets.Count + ")");
-            OutPackets.Clear();
         }
-
-    }
 
     void OnDestroy()
     {
@@ -139,8 +158,11 @@ public class MyNETServer : MonoBehaviour
     public void GetServerPacket(Packet InPacket)
     {
         InPackets.Add(InPacket);
-        Debug.Log("Принял от клиента обработку (" + InPacket.Point + ")"); 
+        Debug.Log("Принял от клиента пакет (" + InPacket.Point + ")"); 
     }
+
+
+
 
     public void Runing()
     {

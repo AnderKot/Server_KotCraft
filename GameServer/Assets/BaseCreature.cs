@@ -20,6 +20,7 @@ namespace BaseCreature
     {
         string IP;
         string Name;
+        EndPoint MyEndPoint;
         public Vector3 MyPosition;
         GameObject MyObject;
         //ChankLoader ChankLoader;
@@ -31,9 +32,10 @@ namespace BaseCreature
         private static GameObject PlayerGameObject = Resources.Load<GameObject>("Player");
 
 
-        public Player(string ip)
+        public Player(string ip, int port)
         {
             IP = ip;
+            MyEndPoint = new IPEndPoint(IPAddress.Parse(IP), port);
             MyPosition = GetStorePosition(ip);
             Spawn();
             StartCalcTread();
@@ -87,9 +89,10 @@ namespace BaseCreature
             MyObject.GetComponent<PlayerObserver>().TriggerBack = Stop—alculation;
         }
         
-        public void SetCurrPos(Vector3 currPos)
+        public void SetCurrPos(Transform TForm)
         {
-            MyPosition = currPos;
+            MyPosition = TForm.position;
+            MyNETServer.OutPackets.Add(new Packet(MyEndPoint, TForm));
         }
 
         public Vector3 GetCurrPos()
