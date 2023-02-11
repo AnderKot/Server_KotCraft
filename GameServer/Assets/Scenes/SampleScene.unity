@@ -239,7 +239,7 @@ MonoBehaviour:
   InPort: 65500
   OutPort: 65510
   Message: 
-  PingDelayStep: 0.01
+  PingDelayStep: 0.1
   IsAddTestClient: 0
   ClientsCount: 0
   ObservesObjects: []

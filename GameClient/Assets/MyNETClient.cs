@@ -8,7 +8,8 @@ using System.Text;
 using System.Threading;
 
 using MyNET;
-
+using BaseCreature;
+using BaseObjects;
 
 public class MyNETClient : MonoBehaviour
 {
@@ -17,8 +18,8 @@ public class MyNETClient : MonoBehaviour
     public int InPort;
     public float PingDelayStep;
     public bool IsConected;
+    public bool IsTrieConnect = false;
 
-    
     // Для слушателя
     private UDPObserver Observer;
     private Thread ObserverThread;
@@ -30,6 +31,8 @@ public class MyNETClient : MonoBehaviour
     private Thread SenderThread;
     private List<Packet> OutPackets = new List<Packet>();
     private float PingDelay = 1;
+
+    private Player MyPlayer;
 
     // Start is called before the first frame update
     void Start()
@@ -50,36 +53,49 @@ public class MyNETClient : MonoBehaviour
         Sender = new UDPSender();
         SenderThread = new Thread(new ThreadStart(Sender.SendLoop));
         SenderThread.IsBackground = true;
+
+        
     }
 
     // Update is called once per frame
     void FixedUpdate()
     {
+        
         if (IsConected)
         {
             foreach (Packet packet in InPackets)
             {
                 switch (packet.GetPacketType())
                 {
-                    case 0:
-                        break;
                     case 1:
-                        Debug.Log("Получил (" + packet.GetString() + ")");
+                        
                         break;
                     case 2:
+                        Debug.Log("Получил (" + packet.GetString() + ")");
+                        break;
+                    case 3:
+                        packet.GetTransform(ref MyPlayer.MyPosition,ref MyPlayer.MyRotation);
+                        break;
+                    case 4:
+                        Chank.AddChank(packet.GetChank());
+
                         break;
                 }
             }
+            InPackets.Clear();
         }
-        else
+
+        if (IsTrieConnect)
         {
+            
+
             if (PingDelay <= 0)
             {
                 if (!SenderThread.IsAlive)
                 {
                     //ClientThread.Abort();
                     Debug.Log("Пинг сервака на подключение");
-                    Sender.OutPackets.Add(new Packet(ObserverPoint, "Hi ?"));
+                    Sender.OutPackets.Add(new Packet(ObserverPoint,0));
                     SenderThread = new Thread(new ThreadStart(Sender.SendLoop));
                     SenderThread.Start();
                     PingDelay = 1;
@@ -91,20 +107,14 @@ public class MyNETClient : MonoBehaviour
             {
                 if (packet.GetPacketType() == 1)
                 {
-                    if (packet.GetString() == "Hi !")
-                    {
-                        Debug.Log("Получил подтверждение на подключение");
-                        IsConected = true;
-                    }
-                    else
-                    {
-                        Debug.Log("Получил <<");
-                        Debug.Log(packet.GetString());
-                        Debug.Log("Получил >>");
-                    }
+                    MyPlayer = new Player();
+                    Debug.Log("Получил подтверждение на подключение");
+                    IsConected = true;
+                    IsTrieConnect = false;
                 }
 
             }
+            //InPackets.Clear();
         }
 
         InPackets.Clear();

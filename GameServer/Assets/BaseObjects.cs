@@ -11,6 +11,7 @@ using System.Data;
 using System.Threading;
 using System.ComponentModel;
 using UnityEngine.Rendering.RendererUtils;
+using MyNET;
 
 namespace BaseObjects
 {
@@ -367,7 +368,7 @@ namespace BaseObjects
                 LoadNearbyChanks();
 
                 RegenetaneMesh();
-
+                MyNETServer.AddChankToSender(this);
                 Debug.Log("Подготовил чанк:" + ChankPoint);
                 return true;
             }

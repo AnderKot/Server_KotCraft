@@ -13,6 +13,7 @@ using UnityEngine.UIElements;
 using System.Security;
 using UnityEditor.PackageManager;
 using BaseCreature;
+using BaseObjects;
 
 public class MyNETServer : MonoBehaviour
 {
@@ -28,12 +29,12 @@ public class MyNETServer : MonoBehaviour
     private List<Packet> InPackets = new List<Packet>();
 
     // Для отправки
-    private static List<Packet> OutAlertPackets = new List<Packet>();
+    public static List<Packet> OutAlertPackets = new List<Packet>();
     public  static List<Packet> OutPackets = new List<Packet>();
     private float PingDelay = 1;
 
-    private List<EndPoint> ClientPoints = new List<EndPoint>();
-    private List<Player> Players = new List<Player>(); 
+    private static List<EndPoint> ClientPoints = new List<EndPoint>();
+    private static List<Player> Players = new List<Player>(); 
     public bool IsAddTestClient;
     public int ClientsCount = 0;
 
@@ -62,7 +63,9 @@ public class MyNETServer : MonoBehaviour
         }
 
         // Разбор пришедших пакетов
-        foreach (Packet packet in InPackets)
+        List<Packet> TempInPackets = new List<Packet>(InPackets);
+
+        foreach (Packet packet in TempInPackets)
         {
             string PointString = packet.Point.ToString();
             int SeparanotIndex = PointString.IndexOf(':');
@@ -161,8 +164,15 @@ public class MyNETServer : MonoBehaviour
         Debug.Log("Принял от клиента пакет (" + InPacket.Point + ")"); 
     }
 
-
-
+    public static void AddChankToSender(Chank outChank)
+    {
+        /*
+        PaketsClientsMultiplaer Multiplaer = new PaketsClientsMultiplaer(ClientPoints, new Packet(null, outChank).GetData());
+        Thread MultiplaerThread = new Thread(new ThreadStart(Multiplaer.MultiplaerLoop));
+        MultiplaerThread.IsBackground = true;
+        MultiplaerThread.Start();
+        */
+    }
 
     public void Runing()
     {

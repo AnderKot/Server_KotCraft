@@ -10,16 +10,19 @@ using UnityEngine;
 using System.Runtime.Serialization.Formatters.Binary;
 using System.IO;
 using Unity.VisualScripting.FullSerializer;
+using Unity.VisualScripting;
+using BaseCreature;
+using UnityEngine.UIElements;
+using BaseObjects;
 
 namespace MyNET
 {
     public class UDPSender
     {
         private Socket OutUdpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        byte[] data = new byte[512];
 
         public List<Packet> OutPackets = new List<Packet>();
-
+        public EndPoint MyClient;
 
         public ExampleCallback callback;
 
@@ -32,13 +35,25 @@ namespace MyNET
 
             try
             {
-                foreach (Packet Outpacket in OutPackets)
+                if (MyClient == null)
                 {
-                    remoteOutPoint = Outpacket.Point;
-                    Task<int> ResultTask = OutUdpSocket.SendToAsync(Outpacket.GetData(), SocketFlags.None, remoteOutPoint);
-                    int R = ResultTask.Result;
-                    //Debug.Log("UDP-отправитель послал: " + Outpacket.Message + " в " + remoteOutPoint.ToString());
-                    Thread.Sleep(0);
+                    foreach (Packet Outpacket in OutPackets)
+                    {
+                        Task<int> ResultTask = OutUdpSocket.SendToAsync(Outpacket.GetData(), SocketFlags.None, Outpacket.Point);
+                        int R = ResultTask.Result;
+                        //Debug.Log("UDP-отправитель послал: " + Outpacket.Message + " в " + remoteOutPoint.ToString());
+                        Thread.Sleep(0);
+                    }
+                }
+                else 
+                {
+                    foreach (Packet Outpacket in OutPackets)
+                    {
+                        Task<int> ResultTask = OutUdpSocket.SendToAsync(Outpacket.GetData(), SocketFlags.None, MyClient);
+                        int R = ResultTask.Result;
+                        //Debug.Log("UDP-отправитель послал: " + Outpacket.Message + " в " + remoteOutPoint.ToString());
+                        Thread.Sleep(0);
+                    }
                 }
             }
             catch (ThreadAbortException)
@@ -53,14 +68,14 @@ namespace MyNET
         public delegate void ExampleCallback(string message);
     }
 
-    
+
 
     public class UDPObserver
     {
 
         EndPoint InPoint = new IPEndPoint(IPAddress.Any, 0); // адрес откуда постучаем
         Socket OutUdpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        byte[] data = new byte[512]; // Битовый буфер
+        byte[] data; // Битовый буфер
         public string IP;
         public int Port;
 
@@ -78,6 +93,7 @@ namespace MyNET
             {
                 try
                 {
+                    data = new byte[OutUdpSocket.ReceiveBufferSize];
                     Task<SocketReceiveFromResult> ResultTask = OutUdpSocket.ReceiveFromAsync(data, SocketFlags.None, InPoint);
                     SocketReceiveFromResult ResultStatus = ResultTask.Result;
                     if (ResultStatus.ReceivedBytes > 0)
@@ -96,7 +112,7 @@ namespace MyNET
                     Run = false;
                     Debug.Log("UDP-слушатель остановлен");
                 }
-            }            
+            }
         }
     }
 
@@ -112,24 +128,18 @@ namespace MyNET
         }
 
         // -- типизированные сообщения
-        public Packet(EndPoint point, string message)
+        public Packet(EndPoint point, int Type)
         {
             Point = point;
             Data.Add(1);
-            Data.AddRange(Encoding.UTF8.GetBytes(message));
+            Data.Add((byte)Type);
         }
 
-        public Packet(EndPoint point, TransformNETForm transfonNET)
+        public Packet(EndPoint point, string message)
         {
             Point = point;
-            
-            BinaryFormatter formatter = new BinaryFormatter();
-            MemoryStream streamReader = new MemoryStream();
-            formatter.Serialize(streamReader, transfonNET);
-
-            //Message = streamReader.ToString();
             Data.Add(2);
-            //Data.AddRange(byteData);
+            Data.AddRange(Encoding.UTF8.GetBytes(message));
         }
 
         // -- Сбор данных на отправку
@@ -141,50 +151,51 @@ namespace MyNET
         // -- Взять сообщение по типу
         public int GetPacketType()
         {
-            return (int)Data[1];
+            return (int)Data[0];
         }
 
         public string GetString()
         {
-            return Encoding.UTF8.GetString(Data.GetRange(2, Data.Count).ToArray(), 0, Data.Count);
+            return Encoding.UTF8.GetString(Data.GetRange(1, Data.Count - 1).ToArray(), 0, Data.Count);
+        }
+
+        public int GetInt()
+        {
+            return Data.GetRange(1, Data.Count - 1).ToArray().ConvertTo<Int32>();
+        }
+
+        public void GetTransform(ref Vector3 position,ref Quaternion rotation)
+        {
+            Data.RemoveAt(0);
+            MemoryStream Stream = new MemoryStream(Data.ToArray());
+            BinaryReader Reader = new BinaryReader(Stream);
+
+            position = new Vector3(Reader.ReadSingle(), Reader.ReadSingle(), Reader.ReadSingle());
+            rotation = new Quaternion(Reader.ReadSingle(), Reader.ReadSingle(), Reader.ReadSingle(), Reader.ReadSingle());
+
+        }
+
+        public Chank GetChank()
+        {
+            Data.RemoveAt(0);
+            MemoryStream Stream = new MemoryStream(Data.ToArray());
+            BinaryReader Reader = new BinaryReader(Stream);
+
+            Vector3Int ChankPosition = new Vector3Int(Reader.ReadInt32(), 0, Reader.ReadInt32());
+
+            int BloksCount = Reader.ReadInt32();
+            Dictionary<Vector3Int, int> BlocsID = new Dictionary<Vector3Int, int>();
+
+            for (int i = 0; i < BloksCount; i++)
+            {
+                BlocsID.Add(new Vector3Int(Reader.ReadInt32(), Reader.ReadInt32(), Reader.ReadInt32()), Reader.ReadInt32());
+            }
+
+            return new Chank(ChankPosition, BlocsID);
+
         }
 
 
     }
 
-    //[Serializable]
-
-    [Serializable]
-    public class TransformNETForm
-    {
-        public float PositionX { get; set; }
-        public float PositionY { get; set; }
-        public float PositionZ { get; set; }
-
-        public float RotationX { get; set; }
-        public float RotationY { get; set; }
-        public float RotationZ { get; set; }
-        public float RotationW { get; set; }
-
-        public TransformNETForm(Vector3 position, Quaternion rotation)
-        {
-            PositionX = position.x;
-            PositionY = position.y;
-            PositionZ = position.z;
-
-            RotationX = rotation.x;
-            RotationY = rotation.y;
-            RotationZ = rotation.z;
-            RotationW = rotation.w;
-        }
-
-        public Vector3 GetPosition()
-        {
-            return (new Vector3(PositionX, PositionY, PositionZ));
-        }
-        public Quaternion GetRotation()
-        {
-            return (new Quaternion(RotationX,RotationY,RotationZ,RotationW));
-        }
-    }
 }

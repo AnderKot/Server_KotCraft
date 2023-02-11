@@ -123,6 +123,50 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &286909278
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 286909279}
+  - component: {fileID: 286909280}
+  m_Layer: 0
+  m_Name: ChankSpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &286909279
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 286909278}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 405.77997, y: 30.489027, z: 392.05536}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 3
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &286909280
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 286909278}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e18d54e0fa07f78428f0b0b51b65ebe1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &598654466
 GameObject:
   m_ObjectHideFlags: 0
@@ -153,20 +197,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e74e4cb8aa33e294ebfc63c3fe507a1a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  IsRender: 0
-  IsGenerate: 0
-  IsRenderOne: 0
-  IsGenerateOne: 0
-  IsSave: 0
-  IsLoad: 0
-  SQLOk: 0
-  IsSetBlock: 0
-  IsDeleteBlock: 0
-  X: 0
-  Z: 0
-  Sub_X: 0
-  Sub_Y: 0
-  Sub_Z: 0
 --- !u!4 &598654468
 Transform:
   m_ObjectHideFlags: 0
@@ -197,7 +227,7 @@ MonoBehaviour:
   IP: 127.0.0.1
   OutPort: 65500
   InPort: 65510
-  PingDelayStep: 0
+  PingDelayStep: 0.1
   IsConected: 0
 --- !u!1 &705507993
 GameObject:

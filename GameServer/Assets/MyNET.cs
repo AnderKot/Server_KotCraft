@@ -12,13 +12,16 @@ using System.IO;
 using Unity.VisualScripting.FullSerializer;
 using Unity.VisualScripting;
 using BaseCreature;
+using UnityEngine.UIElements;
+using System.Net.Security;
+using BaseObjects;
+using UnityEditor.PackageManager;
 
 namespace MyNET
 {
     public class UDPSender
     {
         private Socket OutUdpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        byte[] data = new byte[512];
 
         public List<Packet> OutPackets = new List<Packet>();
         public EndPoint MyClient;
@@ -38,6 +41,7 @@ namespace MyNET
                 {
                     foreach (Packet Outpacket in OutPackets)
                     {
+                        OutUdpSocket.ReceiveBufferSize = Outpacket.GetDataLength();
                         Task<int> ResultTask = OutUdpSocket.SendToAsync(Outpacket.GetData(), SocketFlags.None, Outpacket.Point);
                         int R = ResultTask.Result;
                         //Debug.Log("UDP-отправитель послал: " + Outpacket.Message + " в " + remoteOutPoint.ToString());
@@ -67,14 +71,12 @@ namespace MyNET
         public delegate void ExampleCallback(string message);
     }
 
-
-
     public class UDPObserver
     {
 
         EndPoint InPoint = new IPEndPoint(IPAddress.Any, 0); // адрес откуда постучаем
         Socket OutUdpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-        byte[] data = new byte[512]; // Битовый буфер
+        byte[] data; // Битовый буфер
         public string IP;
         public int Port;
 
@@ -92,6 +94,7 @@ namespace MyNET
             {
                 try
                 {
+                    data = new byte[OutUdpSocket.ReceiveBufferSize];
                     Task<SocketReceiveFromResult> ResultTask = OutUdpSocket.ReceiveFromAsync(data, SocketFlags.None, InPoint);
                     SocketReceiveFromResult ResultStatus = ResultTask.Result;
                     if (ResultStatus.ReceivedBytes > 0)
@@ -114,11 +117,68 @@ namespace MyNET
         }
     }
 
+    public class TSPSender
+    {
+        private Socket OutUdpSocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+        public List<Packet> OutPackets = new List<Packet>();
+        public EndPoint MyClient;
+
+        public ExampleCallback callback;
+
+        public void SendLoop()
+        {
+
+            EndPoint remoteOutPoint; // адрес куда посылаем
+
+            Debug.Log("UDP-отправитель запущен...");
+
+            try
+            {
+                if (MyClient == null)
+                {
+                    foreach (Packet Outpacket in OutPackets)
+                    {
+                        Task<int> ResultTask = OutUdpSocket.SendToAsync(Outpacket.GetData(), SocketFlags.None, Outpacket.Point);
+                        int R = ResultTask.Result;
+                        //Debug.Log("UDP-отправитель послал: " + Outpacket.Message + " в " + remoteOutPoint.ToString());
+                        Thread.Sleep(0);
+                    }
+                }
+                else
+                {
+                    foreach (Packet Outpacket in OutPackets)
+                    {
+                        Task<int> ResultTask = OutUdpSocket.SendToAsync(Outpacket.GetData(), SocketFlags.None, MyClient);
+                        int R = ResultTask.Result;
+                        //Debug.Log("UDP-отправитель послал: " + Outpacket.Message + " в " + remoteOutPoint.ToString());
+                        Thread.Sleep(0);
+                    }
+                }
+            }
+            catch (ThreadAbortException)
+            {
+                OutPackets.Clear();
+                Debug.Log("UDP-отправитель выходит из цикла");
+            }
+            OutPackets.Clear();
+            Debug.Log("UDP-отправитель закончил");
+        }
+
+        public delegate void ExampleCallback(string message);
+    }
+
     public class Packet
     {
         public EndPoint Point;
         public List<byte> Data = new List<byte>();
         // -- Создание из пришедших данных
+        public Packet(Packet packet)
+        {
+            this.Data.AddRange(packet.Data);
+            Point = packet.Point;
+        }
+
         public Packet(EndPoint point, byte[] byteData)
         {
             Point = point;
@@ -140,38 +200,60 @@ namespace MyNET
             Data.AddRange(Encoding.UTF8.GetBytes(message));
         }
 
-        public Packet(EndPoint point, TransformNETForm transfonNET)
-        {
-            Point = point;
-
-            BinaryFormatter formatter = new BinaryFormatter();
-            MemoryStream streamReader = new MemoryStream();
-            formatter.Serialize(streamReader, transfonNET);
-            byte[] data = new byte[streamReader.Length];
-            streamReader.Read(data, 0, data.Length);
-
-            Data.Add(3);
-            Data.AddRange(data);
-        }
-
         public Packet(EndPoint point, Transform transfom)
         {
             Point = point;
-            TransformNETForm transfomNET = new TransformNETForm(0,transfom.position, transfom.rotation);
-            BinaryFormatter formatter = new BinaryFormatter();
-            MemoryStream streamReader = new MemoryStream();
-            formatter.Serialize(streamReader, transfomNET);
-            byte[] data = new byte[streamReader.Length];
-            streamReader.Read(data, 0, data.Length);
+
+            MemoryStream Stream = new MemoryStream();
+            BinaryWriter Writer = new BinaryWriter(Stream);
+
+            Writer.Write(transfom.position.x);
+            Writer.Write(transfom.position.y);
+            Writer.Write(transfom.position.z);
+
+            Writer.Write(transfom.rotation.x);
+            Writer.Write(transfom.rotation.y);
+            Writer.Write(transfom.rotation.z);
+            Writer.Write(transfom.rotation.w);
+
 
             Data.Add(3);
-            Data.AddRange(data);
+            Data.AddRange(Stream.ToArray());
+        }
+
+        public Packet(EndPoint point, Chank chank)
+        {
+            Point = point;
+
+            MemoryStream Stream = new MemoryStream();
+            BinaryWriter Writer = new BinaryWriter(Stream);
+
+            Writer.Write((int)chank.ChankPoint.x);
+            Writer.Write((int)chank.ChankPoint.z);
+
+            Writer.Write((int)chank.BlocksID.Count);
+
+            foreach (KeyValuePair<Vector3Int, int> block in chank.BlocksID)
+            {
+                Writer.Write((int)block.Key.x);
+                Writer.Write((int)block.Key.y);
+                Writer.Write((int)block.Key.z);
+                Writer.Write((int)block.Value);
+            }
+
+            Data.Add(4);
+            Data.AddRange(Stream.ToArray());
         }
 
         // -- Сбор данных на отправку
         public byte[] GetData()
         {
             return Data.ToArray();
+        }
+
+        public int GetDataLength()
+        {
+            return Data.Count;
         }
 
         // -- Взять сообщение по типу
@@ -182,68 +264,43 @@ namespace MyNET
 
         public string GetString()
         {
-            return Encoding.UTF8.GetString(Data.GetRange(2, Data.Count).ToArray(), 0, Data.Count);
+            return Encoding.UTF8.GetString(Data.GetRange(1, Data.Count - 1).ToArray(), 0, Data.Count);
         }
 
         public int GetInt()
         {
             return Data.GetRange(2, Data.Count).ToArray().ConvertTo<Int32>();
         }
-
-
     }
 
-    //[Serializable]
-
-    [Serializable]
-    public class TransformNETForm
+    public class PaketsClientsMultiplaer
     {
-        //public int NETID { get; set; }
+        public byte[] Data;
+        private List<EndPoint> ClientPoints = new List<EndPoint>();
 
-        public float PositionX { get; set; }
-        public float PositionY { get; set; }
-        public float PositionZ { get; set; }
-
-        public float RotationX { get; set; }
-        public float RotationY { get; set; }
-        public float RotationZ { get; set; }
-        public float RotationW { get; set; }
-
-        public TransformNETForm(int netID, Vector3 position, Quaternion rotation)
+        public PaketsClientsMultiplaer(List<EndPoint> clientPoints, byte[] data)
         {
-            //NETID = NETID;
-
-            PositionX = position.x;
-            PositionY = position.y;
-            PositionZ = position.z;
-
-            RotationX = rotation.x;
-            RotationY = rotation.y;
-            RotationZ = rotation.z;
-            RotationW = rotation.w;
+            Data = data;
+            ClientPoints.AddRange(clientPoints);
         }
 
-        public Vector3 GetPosition()
+        public void MultiplaerLoop()
         {
-            return (new Vector3(PositionX, PositionY, PositionZ));
-        }
-        public Quaternion GetRotation()
-        {
-            return (new Quaternion(RotationX, RotationY, RotationZ, RotationW));
+            Debug.Log("Мультипликатор пакетов запущен...");
+
+            try
+            {
+                foreach (EndPoint point in ClientPoints)
+                {
+                    MyNETServer.OutAlertPackets.Add(new Packet(point, Data));
+                }
+
+            }
+            catch (ThreadAbortException)
+            {
+                Debug.Log("Мультипликатор пакетов выходит из цикла");
+            }
+            Debug.Log("Мультипликатор пакетов закончил");
         }
     }
-    /*
-    public class Client
-    {
-        IP ip;
-        Player MyPlayer;
-
-
-        public Client(string ip)
-        {
-            IP = ip;
-            MyPlayer = new Player();
-        }
-    }
-    */
 }

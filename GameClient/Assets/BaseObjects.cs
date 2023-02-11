@@ -1,4 +1,3 @@
-using Palmmedia.ReportGenerator.Core;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -6,14 +5,12 @@ using UnityEngine;
 using Generator;
 
 using System.IO;
-using UnityEditor;
-using static UnityEditor.Progress;
 using ObjectsData;
-using System.Drawing;
-using UnityEngine.Networking.Types;
-using UnityEngine.XR;
-using System.Reflection;
-using Unity.VisualScripting;
+using Mono.Data.Sqlite;
+using System.Data;
+using System.Threading;
+using System.ComponentModel;
+using UnityEngine.Rendering.RendererUtils;
 
 namespace BaseObjects
 {
@@ -98,21 +95,22 @@ namespace BaseObjects
     {
         public Dictionary<Vector3Int, int> BlocksID = new Dictionary<Vector3Int, int>();
         //public int[,,] BloksID = new int[20, 20, 20];
-        public Vector3 ChankPoint;
+        public Vector3Int ChankPoint;
         public GameObject MyObject;
-        public Mesh MyMesh = new Mesh();
+        public bool IsModifyed = false;
+
+        //static Vector3Int[,] Verticles = new Vector3Int[2,2];
+        private List<Vector3> Verticles = new List<Vector3>();
+        private List<int> Triangles = new List<int>();
+        public bool MyMeshReady = false;
+        public bool MyMeshInPrerender = false;
         public List<Vector2> MyUVasID = new List<Vector2>();
         public List<Vector2> MyUV = new List<Vector2>();
         public List<MyMeshInfo> StartMeshPointers = new List<MyMeshInfo>();
 
-        //static Vector3Int[,] Verticles = new Vector3Int[2,2];
-        private List<Vector3> Verticles = new List<Vector3>();
-
-        private List<int> Triangles = new List<int>();
-
         // --Статические поля--
         private static GameObject ChankGameObject = Resources.Load<GameObject>("ChankObject");
-        public static Dictionary<Vector3, Chank> Chanks = new Dictionary<Vector3, Chank>();
+        public static Dictionary<Vector3Int, Chank> Chanks = new Dictionary<Vector3Int, Chank>();
 
         // --Конструкторы--
         public Chank()
@@ -120,21 +118,25 @@ namespace BaseObjects
             //ChankMash.SetIndexBufferData
         }
 
-        public Chank(Vector3 chankPoint)
+        public Chank(Vector3Int chankPoint)
         {
             ChankPoint = chankPoint;
-            BlocksID = TerrainGenerator.Run(chankPoint);
-
+            BlocksID = RunLoad(chankPoint);
+            if (BlocksID == null) 
+            {
+                BlocksID = TerrainGenerator.Run(chankPoint);
+                IsModifyed = true;
+            }
         }
         
-        public Chank(Vector3 chankPoint, Dictionary<Vector3Int, int> bloksID)
+        public Chank(Vector3Int chankPoint, Dictionary<Vector3Int, int> bloksID)
         {
             ChankPoint = chankPoint;
             BlocksID = bloksID;
 
         }
 
-        public Chank(Vector3 chankPoint, List<BlocksIDData> bloksIDData)
+        public Chank(Vector3Int chankPoint, List<BlocksIDData> bloksIDData)
         {
             ChankPoint = chankPoint;
             foreach (BlocksIDData idData in bloksIDData)
@@ -144,25 +146,51 @@ namespace BaseObjects
 
         }
 
-        public Chank(GameObject myObject, Vector3 chankPoint, Dictionary<Vector3Int, int> bloksID)
+        public Chank(GameObject myObject, Vector3Int chankPoint, Dictionary<Vector3Int, int> bloksID)
         {
             MyObject = myObject;
             ChankPoint = chankPoint;
             BlocksID = bloksID;
             Chanks.Add(ChankPoint, this);
         }
-        
+
+        public Chank(Vector3Int chankPoint, int[,,] bloksIDData)
+        {
+            ChankPoint = chankPoint;
+            for (int x = 0; x < bloksIDData.GetLength(0); x++)
+            {
+                for (int y = 0; y < bloksIDData.GetLength(1); y++)
+                {
+                    for (int z = 0; z < bloksIDData.GetLength(2); z++)
+                    {
+                        if (bloksIDData[x, y, z] != 0)
+                        BlocksID.Add(new Vector3Int(x, y, z), bloksIDData[x, y, z]);
+                    }
+                }
+            }
+
+        }
 
         // --Статические метожы--
-        public static void AddChank(Vector3 newChankPoint)
+        public static void AddChank(Chank newChank)
         {
-            if(!Chanks.ContainsKey(newChankPoint))
+            if (!Chanks.ContainsKey(newChank.ChankPoint))
             {
-                Chanks.Add(newChankPoint, new Chank(newChankPoint));
+                if(Chanks.TryAdd(newChank.ChankPoint, newChank))
+                    newChank.StartPreRender();
+
             }
         }
 
-        public static void AddChank(Vector3 newChankPoint, Dictionary<Vector3Int, int> bloksID)
+        public static void AddChank(Vector3Int newChankPoint)
+        {
+            if(!Chanks.ContainsKey(newChankPoint))
+            {
+                Chanks.TryAdd(newChankPoint, new Chank(newChankPoint));
+            }
+        }
+
+        public static void AddChank(Vector3Int newChankPoint, Dictionary<Vector3Int, int> bloksID)
         {
             if (!Chanks.ContainsKey(newChankPoint))
             {
@@ -170,28 +198,126 @@ namespace BaseObjects
             }
         }
 
-        public static void AddChank(Vector3 newChankPoint, List<BlocksIDData> bloksIDData)
+        public static void AddChank(Vector3Int newChankPoint, List<BlocksIDData> bloksIDData)
         {
             if (!Chanks.ContainsKey(newChankPoint))
             {
                 Chanks.Add(newChankPoint, new Chank(newChankPoint, bloksIDData));
             }
         }
-        /*
-        public static void Save()
+
+        public static void AddChank(Vector3Int newChankPoint, int[,,] bloksIDData)
         {
-
-
-            ChankDataList DataList = new ChankDataList(Chanks);
-
-            string Json = JsonUtility.ToJson(DataList);
-            string JsonName = @"\ChankList.Json";
-            
-
-
+            if (!Chanks.ContainsKey(newChankPoint))
+            {
+                Chanks.Add(newChankPoint, new Chank(newChankPoint, bloksIDData));
+            }
         }
 
+        private Dictionary<Vector3Int, int> RunLoad(Vector3 newChankPoint)
+        {
+            string StorePath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + @"\MyServerData\GameData.db";
+            string Params = "Data Source=" + StorePath + ";Foreign Keys = true";
+            SqliteConnection SQLConnection = new SqliteConnection(Params);
+            SqliteCommand SQLComand = SQLConnection.CreateCommand();
+            SQLConnection.Open();
+            // чанки иблоки
+            SQLComand.CommandText = "SELECT ID FROM Shanks WHERE WorldID = 1 AND X=" + newChankPoint.x + " AND Y=" + newChankPoint.y + " AND Z=" + newChankPoint.z + ";";
+            SqliteDataReader Reader = SQLComand.ExecuteReader();
+            if (!Reader.HasRows) // - мир пустой или не найден
+            {
+                Reader.Close();
+                return null;
+            }
 
+            Reader.Read();
+                
+            Dictionary<Vector3Int, int> LoadBloksID = new Dictionary<Vector3Int, int>();
+            string CommandText = "SELECT X , Y , Z , ID FROM Blocks WHERE ShankID = " + Reader["ID"] + ";";
+            Reader.Close();
+            SQLComand.CommandText = CommandText;
+            Reader = SQLComand.ExecuteReader();
+
+            if (!Reader.HasRows) // - чанк пустой берем смледующий
+            {
+                Reader.Close();
+                SQLConnection.Close();
+                return null;
+            }
+
+            while (Reader.Read())
+            {
+
+                LoadBloksID.Add(new Vector3Int(Reader.GetInt32("X"), Reader.GetInt32("Y"), Reader.GetInt32("Z")), Reader.GetInt32("ID"));
+            }
+            Reader.Close();
+            SQLConnection.Close();
+            return LoadBloksID;
+        }
+        
+        public void Save()
+        {
+            Chanks.Remove(ChankPoint);
+            if (IsModifyed)
+            {
+                Thread RunerThread;
+                string StorePath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + @"\MyServerData\GameData.db";
+                string Params = "Data Source=" + StorePath + ";Foreign Keys = true";
+                SqliteConnection SQLConnection = new SqliteConnection(Params);
+                SqliteCommand SQLCommand = SQLConnection.CreateCommand();
+                SQLConnection.Open();
+
+                // - чанки и блоки
+                SQLCommand.CommandText = "SELECT ID FROM Shanks WHERE WorldID='1'  AND X=" + this.ChankPoint.x + " AND Y=" + this.ChankPoint.y + " AND Z=" + this.ChankPoint.z + ";";
+                SqliteDataReader Reader = SQLCommand.ExecuteReader();
+                int id;
+
+                if (Reader.HasRows)
+                {
+                    Reader.Read();
+                    id = Reader.GetInt32("ID");
+                    Reader.Close();
+                }
+                else
+                {
+                    Reader.Close();
+                    SQLCommand.CommandText = "SELECT ID FROM Shanks WHERE WorldID='1' ORDER BY id DESC LIMIT 1;";
+                    Reader = SQLCommand.ExecuteReader();
+                    if (Reader.HasRows)
+                    {
+                        Reader.Read();
+                        id = Reader.GetInt32("ID") + 1;
+                        Reader.Close();
+                    }
+                    else
+                    {
+                        Reader.Close();
+                        id = 0;
+                    }
+                    SQLCommand.CommandText = "INSERT INTO Shanks (WorldID , X , Y , Z , ID) VALUES (1," + this.ChankPoint.x + "," + this.ChankPoint.y + "," + this.ChankPoint.z + "," + id + ")";
+                    SQLCommand.ExecuteNonQuery();
+                }
+                SQLConnection.Close();
+
+                List<string> SQLCommandList = new List<string>();
+
+
+                SQLCommandList.Add("BEGIN TRANSACTION;");
+                SQLCommandList.Add("DELETE FROM Blocks WHERE ShankID=" + id + ";");
+                foreach (KeyValuePair<Vector3Int, int> block in this.BlocksID)
+                {
+                    SQLCommandList.Add("INSERT INTO Blocks (ShankID , X , Y , Z , ID) VALUES (" + id.ToString() + "," + block.Key.x.ToString() + "," + block.Key.y.ToString() + "," + block.Key.z.ToString() + "," + block.Value.ToString() + ");");
+                }
+                SQLCommandList.Add("COMMIT;");
+
+                SQLRuner CommandRuner = new SQLRuner(SQLCommandList);
+                RunerThread = new Thread(new ThreadStart(CommandRuner.SendLoop));
+                RunerThread.IsBackground = true;
+                RunerThread.Start();
+            }
+        }
+
+        /*
         public static void Load()
         {
             string JsonName = @"\ChankList.Json";
@@ -210,16 +336,93 @@ namespace BaseObjects
         }
         */
         //--Глобальные--
-        public void Render()
+        public static bool Render(Vector3Int point) //Показ меша
         {
-            GenerateMesh();
-
-            UpdateObjectMash();
+            if (Chanks.ContainsKey(point))
+            {
+                return Chanks[point].Render();
+            }
+            return false;
         }
+
+        public bool Render()
+        {
+            if ((MyObject == null) & MyMeshReady)
+            {
+                //PreRender();
+
+                UpdateObjectMash();
+
+                Debug.Log("Отрендерен чанк:" + ChankPoint);
+                return true;
+            }
+
+            return (MyObject != null);
+        }
+
+        public static bool PreRender(Vector3Int point) // Подготовка меша
+        {
+            if (Chanks.ContainsKey(point))
+            {
+                return Chanks[point].PreRender();
+            }
+            return false;
+        }
+
+        public bool PreRender()
+        {
+            if (!MyMeshReady & !MyMeshInPrerender)
+            {
+                MyMeshInPrerender = true;
+                LoadNearbyChanks();
+
+                RegenetaneMesh();
+
+                Debug.Log("Подготовил чанк:" + ChankPoint);
+                return true;
+            }
+            return false;
+        }
+
+        public void StartPreRender()
+        {
+            ChankPreRender Render = new ChankPreRender(ChankPoint);
+            Thread RenderThread = new Thread(new ThreadStart(Render.RenderLoop));
+            RenderThread.IsBackground = true;
+            RenderThread.Start();
+        }
+
+        private void LoadNearbyChanks()
+        {
+            if (!Chanks.ContainsKey(ChankPoint + (Vector3Int.forward * 20)))
+            {
+                AddChank(ChankPoint + (Vector3Int.forward * 20));
+            }
+            if (!Chanks.ContainsKey(ChankPoint + (Vector3Int.back * 20)))
+            {
+                AddChank(ChankPoint + (Vector3Int.back * 20));
+            }
+            if (!Chanks.ContainsKey(ChankPoint + (Vector3Int.left * 20)))
+            {
+                AddChank(ChankPoint + (Vector3Int.left * 20));
+            }
+            if (!Chanks.ContainsKey(ChankPoint + (Vector3Int.right * 20)))
+            {
+                AddChank(ChankPoint + (Vector3Int.right * 20));
+            }
+        }
+
 
         private void UpdateObjectMash()
         {
-            MyMesh.Clear();
+            if (!MyObject)
+            {
+                MyObject = GameObject.Instantiate(ChankGameObject) as GameObject;
+                MyObject.transform.position = this.ChankPoint;
+            }
+
+            Mesh MyMesh = new Mesh();
+            //MyMesh.Clear();
             MyMesh.vertices = Verticles.ToArray();
             MyMesh.triangles = Triangles.ToArray();
             //MyMesh.uv
@@ -228,23 +431,24 @@ namespace BaseObjects
 
             MyMesh.RecalculateBounds();
             MyMesh.RecalculateNormals();
+            /*
+            MyObject.GetComponent<MeshFilter>().sharedMesh.vertices = Verticles.ToArray();
+            MyObject.GetComponent<MeshFilter>().sharedMesh.triangles = Triangles.ToArray();
+            //MyMesh.uv
+            MyObject.GetComponent<MeshFilter>().sharedMesh.uv = MyUVasID.ToArray();
+            MyObject.GetComponent<MeshFilter>().sharedMesh.uv2 = MyUV.ToArray();
 
-            if (!MyObject)
-            {
-                MyObject = GameObject.Instantiate(ChankGameObject) as GameObject;
-                MyObject.transform.position = this.ChankPoint;
-            }
+            MyObject.GetComponent<MeshFilter>().sharedMesh.RecalculateBounds();
+            MyObject.GetComponent<MeshFilter>().sharedMesh.RecalculateNormals();
 
-            if (MyObject)
-            {
-                MyObject.GetComponent<MeshFilter>().sharedMesh = MyMesh;
-                MyObject.GetComponent<MeshCollider>().sharedMesh = MyMesh;
-            }
+            MyObject.GetComponent<MeshCollider>().sharedMesh.vertices = Verticles.ToArray();
+            MyObject.GetComponent<MeshCollider>().sharedMesh.triangles = Triangles.ToArray();
+            */
+            MyObject.GetComponent<MeshFilter>().sharedMesh = MyMesh;
         }
 
         public void Show ()
         {
-            
             MyObject.SetActive(true);
         }
 
@@ -258,19 +462,28 @@ namespace BaseObjects
         //--Приватные--
         private int GetLocalBlockID(Vector3Int BlockPoint)
         {
-            Vector3 OtherChankPoint = this.ChankPoint;
+            bool Plag;
+            return GetLocalBlockID(BlockPoint, out Plag);
+        }
+
+        private int GetLocalBlockID(Vector3Int BlockPoint, out bool IsSide)
+        {
+            Vector3Int OtherChankPoint = this.ChankPoint;
             Vector3Int OtheBlockPoint = BlockPoint;
             int BlockID = 0;
+            IsSide = false;
 
             if (BlockPoint.x < 0)
             {
                 OtherChankPoint = this.ChankPoint + (Vector3Int.left * 20);
-                OtheBlockPoint += Vector3Int.right * 20; 
+                OtheBlockPoint += Vector3Int.right * 20;
+                IsSide = true;
             }
             if (19 < BlockPoint.x)
             {
                 OtherChankPoint = this.ChankPoint + (Vector3Int.right * 20);
                 OtheBlockPoint += Vector3Int.left * 20;
+                IsSide = true;
             }
             
             if (BlockPoint.y < 0)
@@ -290,11 +503,13 @@ namespace BaseObjects
             {
                 OtherChankPoint = this.ChankPoint + (Vector3Int.back * 20);
                 OtheBlockPoint += Vector3Int.forward * 20;
+                IsSide = true;
             }
             if (19 < BlockPoint.z)
             {
                 OtherChankPoint = this.ChankPoint + (Vector3Int.forward * 20);
                 OtheBlockPoint += Vector3Int.back * 20;
+                IsSide = true;
             }
 
             if (Chanks.ContainsKey(OtherChankPoint))
@@ -308,6 +523,7 @@ namespace BaseObjects
         {
             if(!BlocksID.ContainsKey(point))
             {
+                IsModifyed = true;
                 BlocksID.Add(point, id);
                 AddBlockMash(point, id);
 
@@ -330,6 +546,7 @@ namespace BaseObjects
         {
             if (BlocksID.ContainsKey(point))
             {
+                IsModifyed = true;
                 //AddBlockMash(point, id);
                 List<int> NearBlocksSides = CutAllBlockMash(point);
                 BlocksID.Remove(point);
@@ -337,6 +554,8 @@ namespace BaseObjects
                 int OldVerticlesCount = Verticles.Count;
                 int OldTrianglesCount = Triangles.Count;
                 int ID;
+
+                bool isSide;
                 foreach (int sides in NearBlocksSides)
                 {
                     switch (sides)
@@ -356,28 +575,28 @@ namespace BaseObjects
                             }
                             break;
                         case 3:
-                            ID = GetLocalBlockID(point + Vector3Int.forward);
+                            ID = GetLocalBlockID(point + Vector3Int.forward, out isSide);
                             if (ID != 0)
                             {
                                 AddBackSideMesh(point + Vector3Int.forward, ID, ref OldVerticlesCount, ref OldTrianglesCount);
                             }
                             break;
                         case 4:
-                            ID = GetLocalBlockID(point + Vector3Int.back);
+                            ID = GetLocalBlockID(point + Vector3Int.back, out isSide);
                             if (ID != 0)
                             {
                                 AddForwardSideMesh(point + Vector3Int.back, ID, ref OldVerticlesCount, ref OldTrianglesCount);
                             }
                             break;
                         case 5:
-                            ID = GetLocalBlockID(point + Vector3Int.left);
+                            ID = GetLocalBlockID(point + Vector3Int.left, out isSide);
                             if (ID != 0)
                             {
                                 AddRightSideMesh(point + Vector3Int.left, ID, ref OldVerticlesCount, ref OldTrianglesCount);
                             }
                             break;
                         case 6:
-                            ID = GetLocalBlockID(point + Vector3Int.right);
+                            ID = GetLocalBlockID(point + Vector3Int.right, out isSide);
                             if (ID != 0)
                             {
                                 AddLeftSideMesh(point + Vector3Int.right, ID, ref OldVerticlesCount, ref OldTrianglesCount);
@@ -403,60 +622,13 @@ namespace BaseObjects
                         NearBlocksSides.Remove(Pointer.SideID);
                     CutSideBlockMash(Pointer.BlockPoint, Pointer.SideID);
                 }
-                
-                        /*
-                        List<MyMeshInfo> Pointers = StartMeshPointers.FindAll(pointer => (pointer.BlockPoint == point));
-                        int DeletedIndex = StartMeshPointers.IndexOf(Pointers[0]);
-                        //int CountDeletedID = 0;
-                        int DST = 0;
-                        int DSV = 0;
-                        bool Transparency = Block.IsTransparency(GetLocalBlockID(point));
-                        foreach (MyMeshInfo Pointer in Pointers)
-                        {
-                            if (!Transparency)
-                                NearBlocksSides.Remove(Pointer.SideID);
-
-                            Verticles.RemoveRange(Pointer.StartVerticlIndex - DSV, 4);
-                            MyUV.RemoveRange(Pointer.StartVerticlIndex - DSV, 4);
-                            MyUVasID.RemoveRange(Pointer.StartVerticlIndex - DSV, 4);
-                            Triangles.RemoveRange(Pointer.StartTrianglesIndex - DST, 6);
-                            List<int> TempTriangles = Triangles.GetRange(Pointer.StartTrianglesIndex - DST, Triangles.Count - (Pointer.StartTrianglesIndex - DST));
-                            Triangles.RemoveRange(Pointer.StartTrianglesIndex - DST, Triangles.Count - (Pointer.StartTrianglesIndex - DST));
-                            foreach (int triangles in TempTriangles)
-                            {
-                                Triangles.Add(triangles - 4);
-                            }
-
-                            DeletedIndex = StartMeshPointers.FindIndex(pointer => (pointer.BlockPoint == Pointer.BlockPoint) & (pointer.SideID == Pointer.SideID));
-                            StartMeshPointers.RemoveAt(DeletedIndex);
-                            List<MyMeshInfo> TempPointers = StartMeshPointers.GetRange(DeletedIndex, StartMeshPointers.Count - DeletedIndex);
-                            StartMeshPointers.RemoveRange(DeletedIndex, StartMeshPointers.Count - DeletedIndex);
-                            foreach (MyMeshInfo pointers in TempPointers)
-                            {
-                                StartMeshPointers.Add(new MyMeshInfo(pointers.BlockPoint, pointers.StartVerticlIndex - DSV, pointers.StartTrianglesIndex - DST, pointers.SideID));
-                            }
-
-                            //CountDeletedID++;
-                            DST += 6;
-                            DSV += 4;
-                        }
-                        */
-                        /*
-                        StartMeshPointers.RemoveRange(DeletedIndex, CountDeletedID);
-                        List<MyMeshInfo> TempPointers = StartMeshPointers.GetRange(DeletedIndex, StartMeshPointers.Count - DeletedIndex);
-                        StartMeshPointers.RemoveRange(DeletedIndex, StartMeshPointers.Count - DeletedIndex);
-                        foreach (MyMeshInfo pointers in TempPointers)
-                        {
-                            StartMeshPointers.Add(new MyMeshInfo(pointers.BlockPoint, pointers.StartVerticlIndex - (4 * CountDeletedID), pointers.StartTrianglesIndex - (6 * CountDeletedID), pointers.SideID));
-                        }
-                        */
             }
             return NearBlocksSides;
         }
 
         private void CutSideBlockMash(Vector3Int point, int sideID)
         {
-            if (BlocksID.ContainsKey(point))
+            if (BlocksID.ContainsKey(point) | (point.x < 0) | (point.y < 0) | (point.x > 20) | ((point.y > 20)))
             {
                 MyMeshInfo CurrInfo = StartMeshPointers.Find(pointer => (pointer.BlockPoint == point) & (pointer.SideID == sideID));
                 if(CurrInfo.SideID != 0)
@@ -484,22 +656,27 @@ namespace BaseObjects
             }
         }
         
-
-        private void GenerateMesh()
+        private void RegenetaneMesh()
         {
-
             Verticles.Clear();
             Triangles.Clear();
             MyUV.Clear();
             MyUVasID.Clear();
             StartMeshPointers.Clear();
 
+            GenerateMesh();
+
+        }
+
+        private void GenerateMesh()
+        {
             foreach (KeyValuePair<Vector3Int, int> currBlock in this.BlocksID) 
             {
                 if (currBlock.Value == 0) return;
 
                 AddBlockMash(currBlock.Key, currBlock.Value);
             }
+            MyMeshReady = true;
         }
 
         private void AddBlockMash(Vector3Int point, int id)
@@ -522,6 +699,11 @@ namespace BaseObjects
 
         private void AddRightSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
         {
+            AddRightSideMesh(point, id, ref OldVerticlesCount,ref  OldTrianglesCount, false);
+        }
+
+        private void AddRightSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount, bool isSide)
+        {
             if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.right))) //6
             {
                 Verticles.Add(point + new Vector3(1, 0, 0)); //0
@@ -535,13 +717,23 @@ namespace BaseObjects
 
                 AddDataInUV(id);
                 AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 6));
+                if (isSide)
+                {
+                    StartMeshPointers.Add(new MyMeshInfo(point + Vector3Int.right, OldVerticlesCount, OldTrianglesCount, 6));
+                }
+                else
+                {
+                    StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 6));
+                }
                 OldVerticlesCount += 4;
                 OldTrianglesCount += 6;
             }
         }
-
         private void AddLeftSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        {
+            AddLeftSideMesh(point, id, ref OldVerticlesCount, ref OldTrianglesCount, false);
+        }
+        private void AddLeftSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount, bool isSide)
         {
             if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.left))) //5
             {
@@ -556,13 +748,23 @@ namespace BaseObjects
 
                 AddDataInUV(id);
                 AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 5));
+                if (isSide)
+                {
+                    StartMeshPointers.Add(new MyMeshInfo(point + Vector3Int.left, OldVerticlesCount, OldTrianglesCount, 5));
+                }
+                else
+                {
+                    StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 5));
+                }
                 OldVerticlesCount += 4;
                 OldTrianglesCount += 6;
             }
         }
-
         private void AddBackSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        {
+            AddBackSideMesh(point, id, ref OldVerticlesCount, ref OldTrianglesCount, false);
+        }
+        private void AddBackSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount, bool isSide)
         {
             if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.back))) //4
             {
@@ -577,13 +779,25 @@ namespace BaseObjects
 
                 AddDataInUV(id);
                 AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 4));
+                if (isSide)
+                {
+                    StartMeshPointers.Add(new MyMeshInfo(point + Vector3Int.back, OldVerticlesCount, OldTrianglesCount, 4));
+                }
+                else
+                {
+                    StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 4));
+                }
                 OldVerticlesCount += 4;
                 OldTrianglesCount += 6;
             }
         }
 
         private void AddForwardSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        {
+            AddForwardSideMesh(point, id, ref OldVerticlesCount, ref OldTrianglesCount, false);
+        }
+
+        private void AddForwardSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount, bool isSide)
         {
             if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.forward))) //3
             {
@@ -598,7 +812,14 @@ namespace BaseObjects
 
                 AddDataInUV(id);
                 AddTriengles(OldVerticlesCount);
-                StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 3));
+                if (isSide)
+                {
+                    StartMeshPointers.Add(new MyMeshInfo(point + Vector3Int.forward, OldVerticlesCount, OldTrianglesCount, 3));
+                }
+                else
+                {
+                    StartMeshPointers.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 3));
+                }
                 OldVerticlesCount += 4;
                 OldTrianglesCount += 6;
             }
@@ -606,6 +827,7 @@ namespace BaseObjects
 
         private void AddDownSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
         {
+            bool isSide = false;
             if (Block.IsTransparency(GetLocalBlockID(point + Vector3Int.down))) //2
             {
                 Verticles.Add(point + new Vector3(0, 0, 0)); //0
@@ -666,6 +888,7 @@ namespace BaseObjects
             Triangles.Add(oldCount + 1);
             Triangles.Add(oldCount + 2);
         }
+
     }
 
     public struct MyMeshInfo
@@ -684,6 +907,59 @@ namespace BaseObjects
         }
     }
 
+    public class SQLRuner
+    {
+        List<string> SQLommandTextList;
 
+        public SQLRuner(List<string> sQLommandTextList)
+        {
+            SQLommandTextList = sQLommandTextList;
+        }
+
+        public void SendLoop()
+        {
+            if (SQLommandTextList != null)
+            {
+                Debug.Log("SQL-ранер стартовал(" + SQLommandTextList.Count + ")");
+                string StorePath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + @"\MyServerData\GameData.db";
+                string Params = "Data Source=" + StorePath + ";Foreign Keys = true";
+                SqliteConnection SQLConnection = new SqliteConnection(Params);
+                SqliteCommand SQLComand = SQLConnection.CreateCommand();
+                SQLConnection.Open();
+
+                foreach (string SQLommandText in SQLommandTextList)
+                {
+                    SQLComand.CommandText = SQLommandText;
+                    SQLComand.ExecuteNonQuery();
+                }
+                Debug.Log("SQL-ранер остановился");
+            }
+
+        }
+    }
+
+    public class ChankPreRender
+    {
+        List<Vector3Int> ChankPoints = new List<Vector3Int>();
+
+        public ChankPreRender(List<Vector3Int> chankPoints)
+        {
+            ChankPoints.AddRange(chankPoints);
+        }
+
+        public ChankPreRender(Vector3Int chankPoint)
+        {
+            ChankPoints.Add(chankPoint);
+        }
+
+        public void RenderLoop()
+        {
+            foreach (Vector3Int chankPoint in ChankPoints)
+            {
+                if (Chank.PreRender(chankPoint))
+                    ChankLoader.RenderList.Add(chankPoint);
+            }
+        }
+    }
 }
 
