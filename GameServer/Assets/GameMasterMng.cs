@@ -40,11 +40,11 @@ public class GameMasterMng : MonoBehaviour
         if (IsRender)
         {
             IsRender = false;
-            foreach (KeyValuePair<Vector3Int, Chank> chank in Chank.Chanks)
+            foreach (KeyValuePair<Vector3Int, Chunk> chank in Chunk.Alphabet)
             {
                 if (chank.Value.MyObject == null)
                 {
-                    chank.Value.Render();
+                    chank.Value.Spawn();
                     break;
                 }
 
@@ -54,7 +54,7 @@ public class GameMasterMng : MonoBehaviour
         if (IsRenderOne)
         {
             IsRenderOne = false;
-            Chank.Chanks[new Vector3Int(X * 20, 0, Z * 20)].Render();
+            Chunk.Alphabet[new Vector3Int(X * 20, 0, Z * 20)].Spawn();
 
         }
 
@@ -62,19 +62,19 @@ public class GameMasterMng : MonoBehaviour
         {
             IsGenerateOne = false;
 
-            Chank.AddChank(new Vector3Int(X * 20, 0, Z * 20));
+            Chunk.AddChank(new Vector3Int(X * 20, 0, Z * 20));
         }
 
         if(IsSetBlock)
         {
             IsSetBlock = false;
-            Chank.Chanks[new Vector3Int(X * 20, 0, Z * 20)].SetBlock(new Vector3Int(Sub_X, Sub_Y , Sub_Z),1);
+            //Chunk.Alphabet[new Vector3Int(X * 20, 0, Z * 20)].SetBlock(new Vector3Int(Sub_X, Sub_Y , Sub_Z),1);
         }
 
         if (IsDeleteBlock)
         {
             IsDeleteBlock = false;
-            Chank.Chanks[new Vector3Int(X * 20, 0, Z * 20)].DeleteBlock(new Vector3Int(Sub_X, Sub_Y, Sub_Z), 1);
+            //Chunk.Alphabet[new Vector3Int(X * 20, 0, Z * 20)].DeleteBlock(new Vector3Int(Sub_X, Sub_Y, Sub_Z), 1);
         }
     }
 
@@ -133,7 +133,7 @@ public class GameMasterMng : MonoBehaviour
 
         FileStream NewFile = new FileStream(StorePath, FileMode.Create);
         BinaryFormatter formatter = new BinaryFormatter();
-        formatter.Serialize(NewFile, new ChankDataList(Chank.Chanks));
+        formatter.Serialize(NewFile, new ChankDataList(Chunk.Alphabet));
         NewFile.Close();
     }
 
@@ -147,7 +147,7 @@ public class GameMasterMng : MonoBehaviour
             ChankDataList DataList = (ChankDataList)formatter.Deserialize(OldFile);
             foreach (ChankData chank in DataList.Chanks)
             {
-                Chank.AddChank(new Vector3Int(chank.Point_x, chank.Point_y, chank.Point_z), chank.BlocksID);
+                Chunk.AddChank(new Vector3Int(chank.Point_x, chank.Point_y, chank.Point_z), chank.BlocksID);
             }
             OldFile.Close();
         }
@@ -177,16 +177,16 @@ public class GameMasterMng : MonoBehaviour
 
         SQLComand.CommandText = "BEGIN TRANSACTION";
         SQLComand.ExecuteNonQuery();
-        foreach (KeyValuePair<Vector3Int, Chank> chank in Chank.Chanks)
+        foreach (KeyValuePair<Vector3Int, Chunk> chank in Chunk.Alphabet)
         {
-            if (chank.Value.BlocksID.Count > 0) // Если в чанке есть блоки
+            if (chank.Value.Blocks.Count > 0) // Если в чанке есть блоки
             {
                 SQLComand.CommandText = "INSERT INTO Shanks (WorldID , X , Y , Z , ID) VALUES (1," + chank.Key.x.ToString() + "," + chank.Key.y.ToString() + "," + chank.Key.z.ToString() + "," + id.ToString() + ")";
                 SQLComand.ExecuteNonQuery();
                 SQLComand.CommandText = "DELETE FROM Blocks WHERE ShankID=" + id.ToString();
                 SQLComand.ExecuteNonQuery();
 
-                foreach (KeyValuePair<Vector3Int, int> block in chank.Value.BlocksID)
+                foreach (KeyValuePair<Vector3Int, int> block in chank.Value.Blocks)
                 {
                     SQLComand.CommandText = "INSERT INTO Blocks (ShankID , X , Y , Z , ID) VALUES (" + id.ToString() + "," + block.Key.x.ToString() + "," + block.Key.y.ToString() + "," + block.Key.z.ToString() + "," + block.Value.ToString() + ")";
                     SQLComand.ExecuteNonQuery();

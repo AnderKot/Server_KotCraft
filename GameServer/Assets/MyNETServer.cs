@@ -164,7 +164,7 @@ public class MyNETServer : MonoBehaviour
         Debug.Log("Принял от клиента пакет (" + InPacket.Point + ")"); 
     }
 
-    public static void AddChankToSender(Chank outChank)
+    public static void AddChankToSender(Chunk outChank)
     {
         /*
         PaketsClientsMultiplaer Multiplaer = new PaketsClientsMultiplaer(ClientPoints, new Packet(null, outChank).GetData());

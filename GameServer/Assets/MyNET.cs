@@ -221,7 +221,7 @@ namespace MyNET
             Data.AddRange(Stream.ToArray());
         }
 
-        public Packet(EndPoint point, Chank chank)
+        public Packet(EndPoint point, Chunk chank)
         {
             Point = point;
 
@@ -231,9 +231,9 @@ namespace MyNET
             Writer.Write((int)chank.ChankPoint.x);
             Writer.Write((int)chank.ChankPoint.z);
 
-            Writer.Write((int)chank.BlocksID.Count);
+            Writer.Write((int)chank.Blocks.Count);
 
-            foreach (KeyValuePair<Vector3Int, int> block in chank.BlocksID)
+            foreach (KeyValuePair<Vector3Int, int> block in chank.Blocks)
             {
                 Writer.Write((int)block.Key.x);
                 Writer.Write((int)block.Key.y);

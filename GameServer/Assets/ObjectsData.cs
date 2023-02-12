@@ -97,13 +97,13 @@ namespace ObjectsData
         [SerializeField]
         public List<ChankData> Chanks;
 
-        public ChankDataList(Dictionary<Vector3Int, Chank> chanks)
+        public ChankDataList(Dictionary<Vector3Int, Chunk> chanks)
         {
             Chanks = new List<ChankData>();
 
-            foreach (KeyValuePair<Vector3Int, Chank> chank in chanks)
+            foreach (KeyValuePair<Vector3Int, Chunk> chank in chanks)
             {
-                ChankData chankData = new ChankData(chank.Key, chank.Value.BlocksID);
+                ChankData chankData = new ChankData(chank.Key, chank.Value.Blocks);
                 //if(chankData.BlocksID.Count > 0)
                 //{ 
                     Chanks.Add(chankData);

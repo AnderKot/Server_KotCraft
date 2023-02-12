@@ -66,17 +66,6 @@ namespace BaseCreature
 
         public void Spawn()
         {
-            if(!Chank.Chanks.ContainsKey(CurrChank))
-            {
-                Chank.AddChank(CurrChank);
-                Chank.PreRender(CurrChank);
-            }
-
-            if (Chank.Chanks[CurrChank].MyObject == null)
-                Chank.Chanks[CurrChank].Render();
-            else
-                Chank.Chanks[CurrChank].Show();
-
             if (MyPosition == Vector3.zero)
             {
                 RaycastHit hit;
@@ -105,17 +94,17 @@ namespace BaseCreature
 
             Vector3Int Delta = newCurrChank - CurrChank;
             CurrChank = newCurrChank;
-            
-            StartPreRender(newCurrChank + Delta);
+
+            ChunkSpawner.AddToNeadSpawnList(newCurrChank + Delta);
             if (Delta.x == 0)
             {
-                StartPreRender(newCurrChank + Delta + (Vector3Int.right * 20));
-                StartPreRender(newCurrChank + Delta + (Vector3Int.left * 20));
+                ChunkSpawner.AddToNeadSpawnList(newCurrChank + Delta + (Vector3Int.right * 20));
+                ChunkSpawner.AddToNeadSpawnList(newCurrChank + Delta + (Vector3Int.left * 20));
             }
             else
             {
-                StartPreRender(newCurrChank + Delta + (Vector3Int.forward * 20));
-                StartPreRender(newCurrChank + Delta + (Vector3Int.back * 20));
+                ChunkSpawner.AddToNeadSpawnList(newCurrChank + Delta + (Vector3Int.forward * 20));
+                ChunkSpawner.AddToNeadSpawnList(newCurrChank + Delta + (Vector3Int.back * 20));
             }
 
         }
@@ -138,14 +127,6 @@ namespace BaseCreature
             CalcCurrChankThread.Abort();
             CalcCurrChankThread.Join();
         }
-
-        private void StartPreRender(Vector3Int chankPoint)
-        {
-            ChankPreRender Render = new ChankPreRender(chankPoint);
-            Thread RenderThread = new Thread(new ThreadStart(Render.RenderLoop));
-            RenderThread.IsBackground = true;
-            RenderThread.Start();
-        }
     }
 
     public class CurrChankMng
@@ -155,28 +136,28 @@ namespace BaseCreature
         private Vector3 ObjectPoint;
 
         public delegate void OutCallback(Vector3Int point);
-        public OutCallback ReturnPoint;
+        public OutCallback ReturnChunkPoint; //SetCurrChunk
 
         public delegate Vector3 InCallback();
-        public InCallback GetPoint;
+        public InCallback GetPos; //GetCurrPos
 
         public string Name;
 
         public CurrChankMng(string name, OutCallback returnPoint, InCallback getPoint)
         {
             Name = name;
-            ReturnPoint = returnPoint;
-            GetPoint = getPoint;
+            ReturnChunkPoint = returnPoint;
+            GetPos = getPoint;
         }
 
         public void CalcLoop()
         {
-            Debug.Log("Вычечления позиции для существа ("+ Name + ") Запущено");
+            Debug.Log("Вычечление позиции для ("+ Name + ") Запущено");
             while (Run)
             {
                 try
                 {
-                    ObjectPoint = GetPoint();
+                    ObjectPoint = GetPos();
                     if (ObjectPoint != Vector3.zero)
                     {
                         Vector3Int point = Vector3Int.FloorToInt(ObjectPoint);
@@ -188,7 +169,7 @@ namespace BaseCreature
                         {
                             CurrChankPoint = NewCurrChank;
                             Debug.Log("Новый чанк существа (" + Name + ") (" + CurrChankPoint + ")");
-                            ReturnPoint(CurrChankPoint);
+                            ReturnChunkPoint(CurrChankPoint);
                         }
                     }
                     Thread.Sleep(100);
@@ -200,7 +181,7 @@ namespace BaseCreature
 
                 }
             }
-            Debug.Log("Вычечления позиции для существа(" + Name + ") Остановленно");
+            Debug.Log("Вычечление позиции для (" + Name + ") Остановленно");
 
         }
     }
