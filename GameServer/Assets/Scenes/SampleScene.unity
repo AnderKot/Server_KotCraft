@@ -123,7 +123,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &62304876
+--- !u!1 &80740538
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -131,23 +131,65 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 62304877}
+  - component: {fileID: 80740542}
+  - component: {fileID: 80740541}
+  - component: {fileID: 80740540}
+  - component: {fileID: 80740539}
   m_Layer: 0
-  m_Name: ChankSpawner
+  m_Name: ChunkMaster
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &62304877
+--- !u!114 &80740539
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 80740538}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d8c873afbaebf3e40b8c365a92080415, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  SpawnedCount: 0
+--- !u!114 &80740540
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 80740538}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 60d2cc7bbc694be43ba60dfd846b2c7d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  BuldedCount: 0
+--- !u!114 &80740541
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 80740538}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1e62f502e23f78d4d8e2ffd0a739f215, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  LoadedCount: 0
+--- !u!4 &80740542
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 62304876}
+  m_GameObject: {fileID: 80740538}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -7.002378, y: 34.882614, z: 9.753865}
+  m_LocalPosition: {x: 17.412653, y: 51.262077, z: 74.49413}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -184,9 +226,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e74e4cb8aa33e294ebfc63c3fe507a1a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  IsRender: 0
   IsRenderOne: 0
   IsGenerateOne: 0
+  IsLoadOne: 0
   SQLOk: 0
   IsSetBlock: 0
   IsDeleteBlock: 0

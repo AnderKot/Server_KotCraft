@@ -1,47 +1,70 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using Mono.Data.Sqlite;
 using System.Data;
-using Unity.VisualScripting;
-using UnityEngine.UIElements;
-using BaseObjects;
-using System.Net;
-using UnityEditor.PackageManager;
-using UnityEngine.Rendering;
 using System.Threading;
+using Workers;
+using MyStruct;
 using MyNET;
-using UnityEngine.Rendering.RendererUtils;
+using System.Collections.Generic;
+using System.Net;
 
 namespace BaseCreature 
 {
     public class Player
     {
+        int NETID;
         string IP;
         string Name;
-        EndPoint MyEndPoint;
+        
         public Vector3 MyPosition;
         GameObject MyObject;
         //ChankLoader ChankLoader;
         Thread CalcCurrChankThread;
-        Vector3Int CurrChank;
+        public ChunkPos CurrChank;
 
+        // --Сетевая часть--
+        EndPoint TCPOutPoint;
+        EndPoint TCPInPoint;
+        private List<Packet> TCPInPackets = new List<Packet>();
+        private List<Packet> TCPOutPackets = new List<Packet>();
+        private Thread TCPObserverTread;
 
+        EndPoint UDPOutPoint;
+        EndPoint UDPInPoint;
+        private List<Packet> UDPInPackets = new List<Packet>();
+        private List<Packet> UDPOutPackets = new List<Packet>();
+        private Thread UDPObserverTread;
+
+        // --Состояния--
+        public bool IsSpawnedOnClient;
 
         private static GameObject PlayerGameObject = Resources.Load<GameObject>("Player");
 
 
-        public Player(string ip, int port)
+        public Player(string ip, int portStep,int NETID)
         {
             IP = ip;
-            MyEndPoint = new IPEndPoint(IPAddress.Parse(IP), port);
-            MyPosition = GetStorePosition(ip);
-            Spawn();
-            StartCalcTread();
+            GetStoreData(ip);
+            // --Подгрузка местности--
+            AreaChunkToFactoryAdder ChankAdder = new AreaChunkToFactoryAdder(CurrChank);
+            Thread AreaFactoryAdderThread = new Thread(new ThreadStart(ChankAdder.AdderLoop));
+            AreaFactoryAdderThread.IsBackground = true;
+            AreaFactoryAdderThread.Start();
+            // --настройка сетевой части
+            TCPOutPoint = new IPEndPoint(IPAddress.Parse(IP), 65500);
+            TCPInPoint = new IPEndPoint(IPAddress.Parse(IP), 65500 + portStep);
+
+            UDPOutPoint = new IPEndPoint(IPAddress.Parse(IP), 65501);
+            UDPInPoint = new IPEndPoint(IPAddress.Parse(IP), 65501 + portStep);
+
+            TCPOutPackets.Add(new Packet(TCPOutPoint, NETID));
+            TCPOutPackets.Add(new Packet(TCPOutPoint, 65500 + portStep));
+            TCPOutPackets.Add(new Packet(TCPOutPoint, 65501 + portStep));
+            StartObserversTread();
         }
 
-        static Vector3 GetStorePosition(string ip)
+        private void GetStoreData(string ip)
         {
             Vector3 StorePosition = Vector3.zero;
             string StorePath = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + @"\MyServerData\GameData.db";
@@ -50,18 +73,23 @@ namespace BaseCreature
             SqliteCommand SQLComand = SQLConnection.CreateCommand();
             SQLConnection.Open();
 
-            SQLComand.CommandText = "SELECT X,Y,Z FROM Clients WHERE IP='"+ ip +"';";
+            SQLComand.CommandText = "SELECT X,Y,Z,Name FROM Clients WHERE IP='" + ip +"';";
             SqliteDataReader Reader = SQLComand.ExecuteReader();
 
             if (Reader.HasRows)
             {
                 Reader.Read();
                 StorePosition = new Vector3(Reader.GetFloat("X"), Reader.GetFloat("Y"), Reader.GetFloat("Z"));
+                Name = Reader.GetString("Name");
                 Reader.Close();
             }
 
             SQLConnection.Close();
-            return StorePosition;
+
+            CurrChank = new ChunkPos(((int)StorePosition.x  - (10 * (1 - (int)Mathf.Sign(StorePosition.x)))) / 20
+                                     ,(int)(StorePosition.z - (10 * (1 - (int)Mathf.Sign(StorePosition.z)))) / 20) * 20;
+             
+            MyPosition = StorePosition;
         }
 
         public void Spawn()
@@ -76,36 +104,32 @@ namespace BaseCreature
             MyObject = GameObject.Instantiate(PlayerGameObject, MyPosition, new Quaternion(0, 0, 0, 1)) as GameObject;
             MyObject.GetComponent<PlayerObserver>().PosBack = SetCurrPos;
             MyObject.GetComponent<PlayerObserver>().TriggerBack = StopСalculation;
+
+            StartCalcTread();
         }
         
         public void SetCurrPos(Transform TForm)
         {
             MyPosition = TForm.position;
-            MyNETServer.OutPackets.Add(new Packet(MyEndPoint, TForm));
+            if(IsSpawnedOnClient)
+                UDPOutPackets.Add(new Packet(UDPOutPoint, TForm, NETID));
         }
-
+        
         public Vector3 GetCurrPos()
         {
             return MyPosition;
         }
 
-        public void SetCurrChank(Vector3Int newCurrChank)
+        public void SetCurrChank(ChunkPos newCurrChank)
         {
 
-            Vector3Int Delta = newCurrChank - CurrChank;
+            ChunkPos Delta = newCurrChank - CurrChank;
             CurrChank = newCurrChank;
-
-            ChunkSpawner.AddToNeadSpawnList(newCurrChank + Delta);
-            if (Delta.x == 0)
-            {
-                ChunkSpawner.AddToNeadSpawnList(newCurrChank + Delta + (Vector3Int.right * 20));
-                ChunkSpawner.AddToNeadSpawnList(newCurrChank + Delta + (Vector3Int.left * 20));
-            }
-            else
-            {
-                ChunkSpawner.AddToNeadSpawnList(newCurrChank + Delta + (Vector3Int.forward * 20));
-                ChunkSpawner.AddToNeadSpawnList(newCurrChank + Delta + (Vector3Int.back * 20));
-            }
+            // Запускаем скан чанков для загрузки
+            ChunkToFactoryAdder ChankAdder = new ChunkToFactoryAdder(CurrChank);
+            Thread FactoryAdderThread = new Thread(new ThreadStart(ChankAdder.AdderLoop));
+            FactoryAdderThread.IsBackground = true;
+            FactoryAdderThread.Start();
 
         }
 
@@ -114,9 +138,32 @@ namespace BaseCreature
             return MyPosition;
         }
 
+        private void StartObserversTread()
+        {
+            TCPObserverTread = new Thread( new TCPObserver(TCPInPoint, ReturnTCPPacket).ReseiveLoop);
+            TCPObserverTread.IsBackground = true;
+            TCPObserverTread.Start();
+
+            UDPObserverTread = new Thread(new UDPObserver(UDPInPoint, ReturnUDPPacket).ReseiveLoop);
+            UDPObserverTread.IsBackground = true;
+            UDPObserverTread.Start();
+        }
+
+        public void ReturnTCPPacket(Packet InPacket)
+        {
+            TCPOutPackets.Add(InPacket);
+            Debug.Log("Принял TCP от клиента пакет (" + InPacket.Point + ")");
+        }
+
+        public void ReturnUDPPacket(Packet InPacket)
+        {
+            UDPOutPackets.Add(InPacket);
+            Debug.Log("Принял TCP от клиента пакет (" + InPacket.Point + ")");
+        }
+
         private void StartCalcTread()
         {
-            CurrChankMng ChankMng = new CurrChankMng(MyObject.name, SetCurrChank, GetCurrPos);
+            CurrChankCalc ChankMng = new CurrChankCalc(MyObject.name, SetCurrChank, GetCurrPos);
             CalcCurrChankThread = new Thread(new ThreadStart(ChankMng.CalcLoop));
             CalcCurrChankThread.IsBackground = true;
             CalcCurrChankThread.Start();
@@ -129,13 +176,13 @@ namespace BaseCreature
         }
     }
 
-    public class CurrChankMng
+    public class CurrChankCalc
     {
         private bool Run = true;
-        public Vector3Int CurrChankPoint;
+        public ChunkPos CurrChankPoint;
         private Vector3 ObjectPoint;
 
-        public delegate void OutCallback(Vector3Int point);
+        public delegate void OutCallback(ChunkPos point);
         public OutCallback ReturnChunkPoint; //SetCurrChunk
 
         public delegate Vector3 InCallback();
@@ -143,7 +190,7 @@ namespace BaseCreature
 
         public string Name;
 
-        public CurrChankMng(string name, OutCallback returnPoint, InCallback getPoint)
+        public CurrChankCalc(string name, OutCallback returnPoint, InCallback getPoint)
         {
             Name = name;
             ReturnChunkPoint = returnPoint;
@@ -161,9 +208,8 @@ namespace BaseCreature
                     if (ObjectPoint != Vector3.zero)
                     {
                         Vector3Int point = Vector3Int.FloorToInt(ObjectPoint);
-                        Vector3Int NewCurrChank = new Vector3Int((point.x - (10 * (1 - (int)Mathf.Sign(point.x)))) / 20
-                                                            , 0
-                                                            , (point.z - (10 * (1 - (int)Mathf.Sign(point.z)))) / 20) * 20;
+                        ChunkPos NewCurrChank = new ChunkPos((point.x - (10 * (1 - (int)Mathf.Sign(point.x)))) / 20
+                                                            ,(point.z - (10 * (1 - (int)Mathf.Sign(point.z)))) / 20) * 20;
 
                         if (CurrChankPoint != NewCurrChank)
                         {
@@ -172,7 +218,7 @@ namespace BaseCreature
                             ReturnChunkPoint(CurrChankPoint);
                         }
                     }
-                    Thread.Sleep(100);
+                    Thread.Sleep(200);
 
                 }
                 catch

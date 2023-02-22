@@ -9,12 +9,17 @@ using System.IO;
 using System.Net.NetworkInformation;
 using ObjectsData;
 using System.Runtime.Serialization.Formatters.Binary;
+using BaseCreature;
+using MyStruct;
 
 public class GameMasterMng : MonoBehaviour
 {
-    public bool IsRender;
+    
+
     public bool IsRenderOne;
     public bool IsGenerateOne;
+    public bool IsLoadOne;
+
     public bool SQLOk;
     public bool IsSetBlock; 
     public bool IsDeleteBlock;
@@ -25,6 +30,17 @@ public class GameMasterMng : MonoBehaviour
     public int Sub_X;
     public int Sub_Y;
     public int Sub_Z;
+
+    private static List<int> PlayersNeedToSpawnList = new List<int>();
+    
+    private static List<Player> PlayersList = new List<Player>();
+
+
+    public static void AddPlayer(string ip)
+    {
+        PlayersList.Add(new Player(ip, PlayersList.Count * 4 + 1, PlayersList.Count));
+        PlayersNeedToSpawnList.Add(PlayersList.Count-1);
+    }
 
     // Start is called before the first frame update
     void Start()
@@ -37,44 +53,51 @@ public class GameMasterMng : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
-        if (IsRender)
+        if (PlayersNeedToSpawnList.Count  > 0)
         {
-            IsRender = false;
-            foreach (KeyValuePair<Vector3Int, Chunk> chank in Chunk.Alphabet)
+            Chunk CurrChunk;
+            if (Chunk.Alphabet.TryGetValue(PlayersList[PlayersNeedToSpawnList[0]].CurrChank, out CurrChunk))
             {
-                if (chank.Value.MyObject == null)
+                if (CurrChunk.IsSpawn)
                 {
-                    chank.Value.Spawn();
-                    break;
+                    PlayersList[PlayersNeedToSpawnList[0]].Spawn();
                 }
-
+                else
+                {
+                    PlayersNeedToSpawnList.Add(PlayersNeedToSpawnList[0]);
+                }
+                PlayersNeedToSpawnList.RemoveAt(0);
             }
         }
 
+        
         if (IsRenderOne)
         {
             IsRenderOne = false;
-            Chunk.Alphabet[new Vector3Int(X * 20, 0, Z * 20)].Spawn();
+            ChunkSpawner.AddToNeadSpawnList(new ChunkPos(X * 20, Z * 20));
 
         }
 
         if (IsGenerateOne)
         {
             IsGenerateOne = false;
-
-            Chunk.AddChank(new Vector3Int(X * 20, 0, Z * 20));
+            ChunkBuilderFactory.AddToNeadBuildList(new ChunkPos(X * 20, Z * 20));
         }
 
-        if(IsSetBlock)
+        if (IsLoadOne)
+        {
+            IsLoadOne = false;
+            ChunkLoaderFactory.AddToNeadLoadList(new ChunkPos(X * 20, Z * 20));
+        }
+
+        if (IsSetBlock)
         {
             IsSetBlock = false;
-            //Chunk.Alphabet[new Vector3Int(X * 20, 0, Z * 20)].SetBlock(new Vector3Int(Sub_X, Sub_Y , Sub_Z),1);
         }
 
         if (IsDeleteBlock)
         {
             IsDeleteBlock = false;
-            //Chunk.Alphabet[new Vector3Int(X * 20, 0, Z * 20)].DeleteBlock(new Vector3Int(Sub_X, Sub_Y, Sub_Z), 1);
         }
     }
 
@@ -110,9 +133,9 @@ public class GameMasterMng : MonoBehaviour
             Reader.Close();
             SQLComand.CommandText = "CREATE TABLE Worlds (Name TEXT[30], ID INT NOT NULL, PRIMARY KEY (ID));";
             SQLComand.ExecuteNonQuery();
-            SQLComand.CommandText = "CREATE TABLE Shanks (WorldID INT, X INT, Y INT, Z INT, ID INT, PRIMARY KEY (WorldID, X, Y, Z), CONSTRAINT FKWorldID FOREIGN KEY (WorldID) REFERENCES Worlds(ID) ON DELETE CASCADE);";
+            SQLComand.CommandText = "CREATE TABLE Shanks (WorldID INT, X INT, Z INT, ID INT, PRIMARY KEY (WorldID, X, Z), CONSTRAINT FKWorldID FOREIGN KEY (WorldID) REFERENCES Worlds(ID) ON DELETE CASCADE);";
             SQLComand.ExecuteNonQuery();
-            SQLComand.CommandText = "CREATE TABLE Blocks (ShankID INT, X INT, Y INT, Z INT, ID INT, PRIMARY KEY (ShankID, X, Y, Z), CONSTRAINT FKChankID FOREIGN KEY (ShankID) REFERENCES Shanks(ID) ON DELETE CASCADE);";
+            SQLComand.CommandText = "CREATE TABLE Blocks (ShankID INT, X SMALLINT, Y INT, Z SMALLINT, ID INT, PRIMARY KEY (ShankID, X, Y, Z), CONSTRAINT FKChankID FOREIGN KEY (ShankID) REFERENCES Shanks(ID) ON DELETE CASCADE);";
             SQLComand.ExecuteNonQuery();
             SQLComand.CommandText = "CREATE TABLE Clients (IP String, X FLOAT, Y FLOAT, Z FLOAT, Name TEXT[30], PRIMARY KEY (IP));";
             SQLComand.ExecuteNonQuery();
@@ -147,7 +170,7 @@ public class GameMasterMng : MonoBehaviour
             ChankDataList DataList = (ChankDataList)formatter.Deserialize(OldFile);
             foreach (ChankData chank in DataList.Chanks)
             {
-                Chunk.AddChank(new Vector3Int(chank.Point_x, chank.Point_y, chank.Point_z), chank.BlocksID);
+                Chunk.AddChank(new ChunkPos(chank.Point_x, chank.Point_z), chank.BlocksID);
             }
             OldFile.Close();
         }
@@ -177,16 +200,16 @@ public class GameMasterMng : MonoBehaviour
 
         SQLComand.CommandText = "BEGIN TRANSACTION";
         SQLComand.ExecuteNonQuery();
-        foreach (KeyValuePair<Vector3Int, Chunk> chank in Chunk.Alphabet)
+        foreach (KeyValuePair<ChunkPos, Chunk> chank in Chunk.Alphabet)
         {
             if (chank.Value.Blocks.Count > 0) // Если в чанке есть блоки
             {
-                SQLComand.CommandText = "INSERT INTO Shanks (WorldID , X , Y , Z , ID) VALUES (1," + chank.Key.x.ToString() + "," + chank.Key.y.ToString() + "," + chank.Key.z.ToString() + "," + id.ToString() + ")";
+                SQLComand.CommandText = "INSERT INTO Shanks (WorldID , X, Z , ID) VALUES (1," + chank.Key.x.ToString() + "," + chank.Key.z.ToString() + "," + id.ToString() + ")";
                 SQLComand.ExecuteNonQuery();
                 SQLComand.CommandText = "DELETE FROM Blocks WHERE ShankID=" + id.ToString();
                 SQLComand.ExecuteNonQuery();
 
-                foreach (KeyValuePair<Vector3Int, int> block in chank.Value.Blocks)
+                foreach (KeyValuePair<BlockPos, int> block in chank.Value.Blocks)
                 {
                     SQLComand.CommandText = "INSERT INTO Blocks (ShankID , X , Y , Z , ID) VALUES (" + id.ToString() + "," + block.Key.x.ToString() + "," + block.Key.y.ToString() + "," + block.Key.z.ToString() + "," + block.Value.ToString() + ")";
                     SQLComand.ExecuteNonQuery();

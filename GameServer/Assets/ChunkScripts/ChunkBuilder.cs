@@ -1,4 +1,5 @@
 using BaseObjects;
+using MyStruct;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -11,40 +12,32 @@ namespace Workers
     {
         // --Чанк--
         Chunk CurrChunk;
-        Vector3Int ChunkPoint;
+        ChunkPos ChunkPoint;
 
         // --Геометрия--
-        ChunkGeometry NewGeometry;
+        private ChunkGeometry NewGeometry;
 
-        public ChunkBuilder(Vector3Int chankPoint)
+        public ChunkBuilder(ChunkPos chunkPoint)
         {
-            ChunkPoint = chankPoint;
+            ChunkPoint = chunkPoint;
         }
 
         public void BuildLoop()
         {
-            Build(ChunkPoint);
-            ChunkSpawner.AddToReadySpawnList(ChunkPoint);
-        }
-    
-
-        private void Build(Vector3Int chankPoint)
-        {
-            CurrChunk = Chunk.Alphabet[chankPoint];
-            if (CurrChunk.IsLoaded)
+            CurrChunk = Chunk.Alphabet[ChunkPoint];
+            CurrChunk.IsBuild = true;
+            NewGeometry = new ChunkGeometry(true);
+            foreach (KeyValuePair<BlockPos, int> CurrBlock in CurrChunk.Blocks)
             {
-                CurrChunk.IsBuild = true;
-                NewGeometry = new ChunkGeometry();
-                foreach (KeyValuePair<Vector3Int, int> CurrBlock in CurrChunk.Blocks)
-                {
-                    AddBlockMash(CurrBlock.Key, CurrBlock.Value);
-                }
-                CurrChunk.Geometry = NewGeometry;
-                CurrChunk.IsBuilded = true;
+                AddBlockMash(CurrBlock.Key, CurrBlock.Value);
             }
+            CurrChunk.Geometry = NewGeometry;
+            CurrChunk.IsBuilded = true;
+            Debug.Log("Построен чанк:" + CurrChunk.ChankPoint);
+            
         }
 
-        private void AddBlockMash(Vector3Int point, int id)
+        private void AddBlockMash(BlockPos point, int id)
         {
             {
                 int OldVerticlesCount = NewGeometry.VerticleList.Count;
@@ -64,17 +57,14 @@ namespace Workers
             }
         }
 
-        private void AddRightSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        private void AddRightSideMesh(BlockPos point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
         {
-            if (Block.IsTransparency(CurrChunk.GetLocalBlockID(point + Vector3Int.right))) //6
+            if (Block.IsTransparency(CurrChunk.GetLocalBlockID(point + BlockPos.right))) //6
             {
-                NewGeometry.VerticleList.Add(point + new Vector3(1, 0, 0)); //0
-                NewGeometry.VerticleList.Add(point + new Vector3(1, 0, 1)); //1
-                NewGeometry.VerticleList.Add(point + new Vector3(1, 1, 0)); //2
-                NewGeometry.VerticleList.Add(point + new Vector3(1, 1, 1)); //3
-                AddPositivUV();
-
-                AddDataInUV(id);
+                NewGeometry.VerticleList.Add((point + new BlockPos(1, 0, 0)).GepVector3()); //0
+                NewGeometry.VerticleList.Add((point + new BlockPos(1, 0, 1)).GepVector3()); //1
+                NewGeometry.VerticleList.Add((point + new BlockPos(1, 1, 0)).GepVector3()); //2
+                NewGeometry.VerticleList.Add((point + new BlockPos(1, 1, 1)).GepVector3()); //3
                 AddTriengles(OldVerticlesCount);
                 NewGeometry.MeshInfoList.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 6));
 
@@ -83,17 +73,14 @@ namespace Workers
             }
         }
 
-        private void AddLeftSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        private void AddLeftSideMesh(BlockPos point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
         {
-            if (Block.IsTransparency(CurrChunk.GetLocalBlockID(point + Vector3Int.left))) //5
+            if (Block.IsTransparency(CurrChunk.GetLocalBlockID(point + BlockPos.left))) //5
             {
-                NewGeometry.VerticleList.Add(point + new Vector3(0, 0, 0)); //0
-                NewGeometry.VerticleList.Add(point + new Vector3(0, 1, 0)); //2
-                NewGeometry.VerticleList.Add(point + new Vector3(0, 0, 1)); //1
-                NewGeometry.VerticleList.Add(point + new Vector3(0, 1, 1)); //3
-                AddNegativUV();
-
-                AddDataInUV(id);
+                NewGeometry.VerticleList.Add((point + new BlockPos(0, 0, 0)).GepVector3()); //0
+                NewGeometry.VerticleList.Add((point + new BlockPos(0, 1, 0)).GepVector3()); //2
+                NewGeometry.VerticleList.Add((point + new BlockPos(0, 0, 1)).GepVector3()); //1
+                NewGeometry.VerticleList.Add((point + new BlockPos(0, 1, 1)).GepVector3()); //3
                 AddTriengles(OldVerticlesCount);
 
                 NewGeometry.MeshInfoList.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 5));
@@ -103,17 +90,14 @@ namespace Workers
             }
         }
 
-        private void AddBackSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        private void AddBackSideMesh(BlockPos point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
         {
-            if (Block.IsTransparency(CurrChunk.GetLocalBlockID(point + Vector3Int.back))) //4
+            if (Block.IsTransparency(CurrChunk.GetLocalBlockID(point + BlockPos.back))) //4
             {
-                NewGeometry.VerticleList.Add(point + new Vector3(0, 0, 0)); //0
-                NewGeometry.VerticleList.Add(point + new Vector3(1, 0, 0)); //1
-                NewGeometry.VerticleList.Add(point + new Vector3(0, 1, 0)); //2
-                NewGeometry.VerticleList.Add(point + new Vector3(1, 1, 0)); //3
-                AddPositivUV();
-
-                AddDataInUV(id);
+                NewGeometry.VerticleList.Add((point + new BlockPos(0, 0, 0)).GepVector3()); //0
+                NewGeometry.VerticleList.Add((point + new BlockPos(1, 0, 0)).GepVector3()); //1
+                NewGeometry.VerticleList.Add((point + new BlockPos(0, 1, 0)).GepVector3()); //2
+                NewGeometry.VerticleList.Add((point + new BlockPos(1, 1, 0)).GepVector3()); //3
                 AddTriengles(OldVerticlesCount);
 
                 NewGeometry.MeshInfoList.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 4));
@@ -123,17 +107,14 @@ namespace Workers
             }
         }
 
-        private void AddForwardSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        private void AddForwardSideMesh(BlockPos point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
         {
-            if (Block.IsTransparency(CurrChunk.GetLocalBlockID(point + Vector3Int.forward))) //3
+            if (Block.IsTransparency(CurrChunk.GetLocalBlockID(point + BlockPos.forward))) //3
             {
-                NewGeometry.VerticleList.Add(point + new Vector3(0, 0, 1)); //0
-                NewGeometry.VerticleList.Add(point + new Vector3(0, 1, 1)); //2
-                NewGeometry.VerticleList.Add(point + new Vector3(1, 0, 1)); //1
-                NewGeometry.VerticleList.Add(point + new Vector3(1, 1, 1)); //3
-                AddNegativUV();
-
-                AddDataInUV(id);
+                NewGeometry.VerticleList.Add((point + new BlockPos(0, 0, 1)).GepVector3()); //0
+                NewGeometry.VerticleList.Add((point + new BlockPos(0, 1, 1)).GepVector3()); //2
+                NewGeometry.VerticleList.Add((point + new BlockPos(1, 0, 1)).GepVector3()); //1
+                NewGeometry.VerticleList.Add((point + new BlockPos(1, 1, 1)).GepVector3()); //3
                 AddTriengles(OldVerticlesCount);
 
                 NewGeometry.MeshInfoList.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 3));
@@ -143,18 +124,15 @@ namespace Workers
             }
         }
 
-        private void AddDownSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        private void AddDownSideMesh(BlockPos point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
         {
             bool isSide = false;
-            if (Block.IsTransparency(CurrChunk.GetLocalBlockID(point + Vector3Int.down))) //2
+            if (Block.IsTransparency(CurrChunk.GetLocalBlockID(point + BlockPos.down))) //2
             {
-                NewGeometry.VerticleList.Add(point + new Vector3(0, 0, 0)); //0
-                NewGeometry.VerticleList.Add(point + new Vector3(0, 0, 1)); //2
-                NewGeometry.VerticleList.Add(point + new Vector3(1, 0, 0)); //1
-                NewGeometry.VerticleList.Add(point + new Vector3(1, 0, 1)); //3
-                AddPositivUV();
-
-                AddDataInUV(id);
+                NewGeometry.VerticleList.Add((point + new BlockPos(0, 0, 0)).GepVector3()); //0
+                NewGeometry.VerticleList.Add((point + new BlockPos(0, 0, 1)).GepVector3()); //2
+                NewGeometry.VerticleList.Add((point + new BlockPos(1, 0, 0)).GepVector3()); //1
+                NewGeometry.VerticleList.Add((point + new BlockPos(1, 0, 1)).GepVector3()); //3
                 AddTriengles(OldVerticlesCount);
                 NewGeometry.MeshInfoList.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 2));
                 OldVerticlesCount += 4;
@@ -162,47 +140,21 @@ namespace Workers
             }
         }
 
-        private void AddUpSideMesh(Vector3Int point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
+        private void AddUpSideMesh(BlockPos point, int id, ref int OldVerticlesCount, ref int OldTrianglesCount)
         {
-            if (Block.IsTransparency(CurrChunk.GetLocalBlockID(point + Vector3Int.up)))  //1
+            if (Block.IsTransparency(CurrChunk.GetLocalBlockID(point + BlockPos.up)))  //1
             {
-                NewGeometry.VerticleList.Add(point + new Vector3(0, 1, 0)); //0
-                NewGeometry.VerticleList.Add(point + new Vector3(1, 1, 0)); //1
-                NewGeometry.VerticleList.Add(point + new Vector3(0, 1, 1)); //2
-                NewGeometry.VerticleList.Add(point + new Vector3(1, 1, 1)); //3
-                AddPositivUV();
-
-                AddDataInUV(id);
+                NewGeometry.VerticleList.Add((point + new BlockPos(0, 1, 0)).GepVector3()); //0
+                NewGeometry.VerticleList.Add((point + new BlockPos(1, 1, 0)).GepVector3()); //1
+                NewGeometry.VerticleList.Add((point + new BlockPos(0, 1, 1)).GepVector3()); //2
+                NewGeometry.VerticleList.Add((point + new BlockPos(1, 1, 1)).GepVector3()); //3
                 AddTriengles(OldVerticlesCount);
                 NewGeometry.MeshInfoList.Add(new MyMeshInfo(point, OldVerticlesCount, OldTrianglesCount, 1));
                 OldVerticlesCount += 4;
                 OldTrianglesCount += 6;
             }
         }
-
-        private void AddPositivUV()
-        {
-            NewGeometry.UVList.Add(new Vector2(0, 0));
-            NewGeometry.UVList.Add(new Vector2(1, 0));
-            NewGeometry.UVList.Add(new Vector2(0, 1));
-            NewGeometry.UVList.Add(new Vector2(1, 1));
-        }
-
-        private void AddNegativUV()
-        {
-            NewGeometry.UVList.Add(new Vector2(0, 0));
-            NewGeometry.UVList.Add(new Vector2(0, 1));
-            NewGeometry.UVList.Add(new Vector2(1, 0));
-            NewGeometry.UVList.Add(new Vector2(1, 1));
-        }
-
-        private void AddDataInUV(int blockID)
-        {
-            NewGeometry.IDList.Add(new Vector2(blockID, 0));
-            NewGeometry.IDList.Add(new Vector2(blockID, 0));
-            NewGeometry.IDList.Add(new Vector2(blockID, 0));
-            NewGeometry.IDList.Add(new Vector2(blockID, 0));
-        }
+        
 
         private void AddTriengles(int oldCount)
         {
@@ -220,12 +172,12 @@ namespace Workers
 
     public struct MyMeshInfo
     {
-        public Vector3Int BlockPoint;
+        public BlockPos BlockPoint;
         public int StartVerticlIndex;
         public int StartTrianglesIndex;
         public int SideID;
 
-        public MyMeshInfo(Vector3Int point, int startVerticlesCount, int startTrianglesCount, int sideID) : this()
+        public MyMeshInfo(BlockPos point, int startVerticlesCount, int startTrianglesCount, int sideID) : this()
         {
             this.BlockPoint = point;
             this.StartVerticlIndex = startVerticlesCount;
@@ -238,16 +190,12 @@ namespace Workers
     {
         public List<Vector3> VerticleList;
         public List<int> TriangleList;
-        public List<Vector2> IDList;
-        public List<Vector2> UVList;
         public List<MyMeshInfo> MeshInfoList;
 
         public ChunkGeometry(bool Chop)
         {
             VerticleList = new List<Vector3>();
             TriangleList = new List<int>();
-            IDList = new List<Vector2>();
-            UVList = new List<Vector2>();
             MeshInfoList = new List<MyMeshInfo>();
         }
     }

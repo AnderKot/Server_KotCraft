@@ -4,8 +4,8 @@ using UnityEngine;
 
 public class ChunkGizmos : MonoBehaviour
 {
-    void Start()
+    void OnDrawGizmos()
     {
-        Gizmos.DrawWireMesh(gameObject.GetComponent<MeshCollider>().sharedMesh);
+        Gizmos.DrawWireMesh(gameObject.GetComponent<MeshCollider>().sharedMesh,-1,transform.position);
     }
 }

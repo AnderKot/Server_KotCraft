@@ -1,7 +1,9 @@
 using BaseObjects;
 using MyNET;
+using MyStruct;
 using System.Collections;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Numerics;
 using System.Threading;
@@ -11,34 +13,55 @@ using UnityEngine.UIElements;
 
 public class ChunkSpawner : MonoBehaviour
 {
-    private static List<Vector3Int> ReadySpawnList = new List<Vector3Int>();
-    private static List<Vector3Int> NeedSpawnList = new List<Vector3Int>();
+    public int SpawnedCount = 0;
+
+    private static List<ChunkPos> NeedSpawnList = new List<ChunkPos>();
+    private Chunk CurrChunk;
 
     void FixedUpdate()
     {
         if (NeedSpawnList.Count > 0)
         {
-            if (ReadySpawnList.Contains(NeedSpawnList[0]))
-            {
-                Chunk.Spawn(NeedSpawnList[0]);
-                NeedSpawnList.RemoveAt(0);
+            CurrChunk = null;
+            if (Chunk.Alphabet.TryGetValue(NeedSpawnList[0],out CurrChunk))
+            { 
+                if(CurrChunk.IsSpawn)
+                {
+                    NeedSpawnList.RemoveAt(0);
+                    return;
+                }
+
+                if (CurrChunk.IsBuilded)
+                {
+                    CurrChunk.IsSpawn = true;
+                    CurrChunk.MyObject = GameObject.Instantiate(Chunk.GameObject) as GameObject;
+                    CurrChunk.MyObject.transform.position = this.CurrChunk.ChankPoint.GepVector3();
+
+                    Mesh MyMesh = new Mesh();
+                    MyMesh.vertices = CurrChunk.Geometry.VerticleList.ToArray();
+                    MyMesh.triangles = CurrChunk.Geometry.TriangleList.ToArray();
+
+                    MyMesh.RecalculateBounds();
+                    MyMesh.RecalculateNormals();
+
+                    CurrChunk.MyObject.GetComponent<MeshCollider>().sharedMesh = MyMesh;
+                    NeedSpawnList.RemoveAt(0);
+                    SpawnedCount++;
+
+                    Debug.Log("Отрендерен чанк:" + CurrChunk.ChankPoint);
+                    return;
+                }
             }
+            NeedSpawnList.Add(NeedSpawnList[0]);
+            NeedSpawnList.RemoveAt(0);
         }
     }
 
-    public static void AddToNeadSpawnList(Vector3Int point)
+    public static void AddToNeadSpawnList(ChunkPos point)
     {
         if (!NeedSpawnList.Contains(point))
         {
             NeedSpawnList.Add(point);
-        }
-    }
-
-    public static void AddToReadySpawnList(Vector3Int point)
-    {
-        if (!ReadySpawnList.Contains(point))
-        {
-            ReadySpawnList.Add(point);
         }
     }
 }
